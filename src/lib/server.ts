@@ -58,7 +58,12 @@ export function assertLocal(request: Request) {
 }
 export function assertOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  if (!origin || origin !== new URL(request.url).origin)
+  // Compare against the Host header: Next dev rewrites request.url to "localhost" even when the page is on 127.0.0.1.
+  if (
+    !origin ||
+    !URL.canParse(origin) ||
+    new URL(origin).host !== request.headers.get("host")
+  )
     throw new AppError("허용되지 않은 요청입니다.", 403);
 }
 type DemoDB = {
