@@ -40,16 +40,16 @@
 
 ### 3.1 Supabase 연동 (가장 먼저)
 
-1. Supabase 프로젝트 생성(무료 플랜, 서울 리전)
-2. SQL Editor에서 `.local/supabase-setup.sql` 실행. 마이그레이션과 예시 강좌 24개가 한 트랜잭션으로 들어간다. 이 파일은 git에 없으므로 받아서 쓰거나, 마이그레이션을 실행한 뒤 `npm run db:seed`를 실행한다.
-3. `.env.local`에 URL, publishable 키, service role 키 입력. **키는 커밋하거나 채팅에 붙여넣지 않는다.**
-4. Authentication에서 이메일 확인 켜기, Gmail SMTP(앱 비밀번호) 설정
-5. Before User Created 훅에 `public.before_user_created` 연결
-6. Site URL과 Redirect URL에 `/auth/callback`, `/auth/callback?next=/reset-password` 등록
-7. Cron 활성화 후 `supabase/cron.sql` 실행. 수강신청 일정을 실제 값으로 변경
-8. 운영자 계정 등록(`operators`)과 시연 계정 테스트 충전(`grant_test_credit`)
+1. [x] Supabase 프로젝트 생성(무료 플랜, 서울 리전)
+2. [x] SQL Editor에서 `.local/supabase-setup.sql` 실행. 마이그레이션과 예시 강좌 24개가 한 트랜잭션으로 들어간다. 이 파일은 git에 없으므로 받아서 쓰거나, 마이그레이션을 실행한 뒤 `npm run db:seed`를 실행한다.
+3. [x] `.env.local`에 URL, publishable 키, service role 키 입력. **키는 커밋하거나 채팅에 붙여넣지 않는다.**
+4. [x] Authentication에서 이메일 확인 켜기, Gmail SMTP(앱 비밀번호) 및 `Confirm signup` 인증 코드(`{{ .Token }}`) 템플릿 설정
+5. [x] Before User Created 훅에 `public.before_user_created` 연결
+6. [x] Site URL과 Redirect URL에 `/auth/callback`, `/auth/callback?next=/reset-password` 등록
+7. [x] Cron 활성화 후 `supabase/cron.sql` 실행. 수강신청 일정을 실제 값으로 변경
+8. [ ] 운영자 계정 등록(`operators`)과 시연 계정 테스트 충전(`grant_test_credit`)
 
-**완료 기준:** gmail 가입은 거부되고 한양 메일 가입·인증·로그인이 된다. `/api/session`이 `mode: "supabase"`로 응답한다. 5분 뒤 `aggregation_status.last_success`가 갱신된다. 완료되면 프론트엔드에 알린다.
+**완료 기준:** gmail 가입은 거부되고 한양 메일 가입·인증·로그인이 된다. `/api/session`이 `mode: "supabase"`로 응답한다. 5분 뒤 `aggregation_status.last_success`가 갱신된다. 완료되면 프론트엔드에 알린다. *(2026-11-19 1~7번 연동 및 완료 기준 검증 완료)*
 
 ### 3.2 남은 백엔드 작업
 
