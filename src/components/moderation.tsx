@@ -40,7 +40,7 @@ export default function Moderation({
     }
   }
   return (
-    <section className="panel">
+    <section className="card stack">
       <h2>강의평 신고 검토</h2>
       {!allowed ? (
         <p className="muted">운영자만 접근할 수 있습니다.</p>
@@ -52,7 +52,7 @@ export default function Moderation({
           </p>
           {!reviews.length && <p>접수된 신고가 없습니다.</p>}
           {reviews.map((r) => (
-            <article className="reviewRow" key={r.id}>
+            <article className="listRow" key={r.id}>
               <div>
                 <strong>
                   {courses.find((c) => c.id === r.courseId)?.name}
@@ -61,7 +61,7 @@ export default function Moderation({
                 <span className="tag">{r.hidden ? "숨김" : "표시 중"}</span>
               </div>
               <button
-                className="button outline"
+                className="btn outline"
                 disabled={busy}
                 onClick={() => void update(r.id, !r.hidden)}
               >

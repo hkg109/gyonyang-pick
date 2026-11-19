@@ -1,6 +1,22 @@
 import Link from "next/link";
 import type { Course, Snapshot } from "@/lib/types";
-import { Arrow, Paw } from "./shared";
+import { Paw } from "./shared";
+
+const Next = ({ href }: { href: string }) => (
+  <a href={href} className="nextHint" aria-label="다음 섹션으로">
+    <span>다음</span>
+    <svg width="16" height="10" viewBox="0 0 16 10" aria-hidden="true">
+      <path
+        d="M2 2l6 6 6-6"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </a>
+);
 
 export default function HomePage({
   account,
@@ -11,136 +27,156 @@ export default function HomePage({
 }) {
   return (
     <main id="content">
-      <section className="hero">
-        <div className="heroCopy">
-          <span className="heroBadge">한양대학교 수강신청 도우미</span>
-          <p className="heroKicker">이번 학기, 나를 위한 선택</p>
-          <h1>
-            교냥픽<span className="heroPeriod">.</span>
-          </h1>
-          <p className="heroDescription">
-            취향은 맞추고, 고민은 줄이고.
-            <br />
-            나에게 맞는 교양을 찾아보세요.
-          </p>
-          <div className="heroButtons">
-            <Link className="button light" href="/explore">
-              교양 추천받기 <Arrow />
-            </Link>
-            <Link className="button ghostLight" href="/my-report">
-              내 리포트 보기 <span>→</span>
-            </Link>
-          </div>
-          <p className="heroNote">
-            성향 맞춤 교양 추천 · 모의 경쟁률 리포트
-          </p>
-        </div>
-        <div className="heroVisual" aria-hidden="true">
-          <div className="orbit orbit1" />
-          <div className="orbit orbit2" />
-          <div className="heroPaw paw1">
+      <section className="hero" aria-label="교냥픽 소개">
+        <div className="heroDeco" aria-hidden="true">
+          <span className="deco d1">
+            <Paw size={110} />
+          </span>
+          <span className="deco d2">
+            <Paw size={140} />
+          </span>
+          <span className="deco d3">
             <Paw size={170} />
-          </div>
-          <div className="heroPaw paw2">
-            <Paw size={92} />
-          </div>
+          </span>
+          <span className="deco d4">
+            <Paw size={230} />
+          </span>
           <div className="pickCard">
-            <div className="pickHeading">
-              <span>TODAY’S PICK</span>
-              <Paw size={26} />
+            <div className="pickHead">
+              <strong>오늘의 Pick</strong>
+              <span>
+                <Paw size={24} />
+              </span>
             </div>
-            <h2>나의 교양 선택지</h2>
             {[0, 1, 2].map((i) => (
               <div className="pickRow" key={i}>
-                <span className={`rankBadge rank${i}`}>
-                  {i + 1}지망
-                </span>
-                <strong>
-                  {byId(account!.ranks[i])?.name ?? "아직 고르지 않았어요"}
-                </strong>
+                <span className={`rankBadge r${i}`}>{i + 1}지망</span>
+                <span>{byId(account.ranks[i])?.name ?? "아직 고르지 않았어요"}</span>
               </div>
             ))}
-            <div className="pickBottom">
-              <span className="statusDot" />
-              시간 충돌 없이, 나답게
-            </div>
           </div>
-          <span className="floatingNote">좋은 교양, 먼저 찜! ✦</span>
         </div>
-        <a href="#quick-links" className="scrollHint">
-          아래로 둘러보기 <span>↓</span>
-        </a>
-      </section>
-      <section id="quick-links" className="homeSection">
-        <div className="sectionIntro">
-          <span className="eyebrow">YOUR NEXT STEP</span>
-          <h2>어디서부터 시작할까요?</h2>
-          <p>추천부터 리포트까지, 한 번에 준비하세요.</p>
-        </div>
-        <div className="quickGrid">
-          {[
-            [
-              "01",
-              "무료 젤리 얻기",
-              "들은 교양의 강의평과 모의지원 표본으로 리포트를 열어 보세요.",
-              "/jelly",
-              "젤리 받으러 가기",
-            ],
-            [
-              "02",
-              "나에게 맞는 교양 찾기",
-              "가능 시간과 취향만 알려 주세요. 겹치지 않는 추천안을 만들어요.",
-              "/explore",
-              "교양탐색 시작하기",
-            ],
-            [
-              "03",
-              "1·2·3지망 정하기",
-              "찜한 교양으로 지망을 정하고, 모의 경쟁률 리포트를 확인하세요.",
-              "/my-report",
-              "내 리포트로 가기",
-            ],
-          ].map(([no, title, desc, href, cta]) => (
-            <Link href={href} className="quickCard" key={no}>
-              <span className="quickNumber">{no}</span>
-              <Paw size={34} />
-              <h3>{title}</h3>
-              <p>{desc}</p>
-              <strong>
-                {cta}
-                <Arrow />
-              </strong>
+        <div className="heroCopy">
+          <span className="heroBadge">한양대학교 수강 신청 도우미</span>
+          <h1>교냥픽</h1>
+          <p>성향 맞춤 교양 추천과 모의 경쟁률 리포트</p>
+          <div className="heroButtons">
+            <Link className="btn heroPrimary" href="/explore">
+              교양 추천받기
             </Link>
-          ))}
+            <Link className="btn heroGhost" href="/my-report">
+              내 리포트 보기
+            </Link>
+          </div>
+        </div>
+        <Next href="#banners" />
+      </section>
+
+      <section id="banners" className="homeBand" aria-label="바로가기 배너">
+        <div className="bandInner">
+          <div className="bannerGrid">
+            <Link href="/jelly" className="banner">
+              <Paw size={44} />
+              <strong>무료 젤리 얻기</strong>
+              <span>
+                들은 교양 강의평 2과목 = 젤리 1개. 모의수강신청 표본으로도 받을
+                수 있어요.
+              </span>
+              <em>젤리로 이동 →</em>
+            </Link>
+            <Link href="/explore" className="banner">
+              <svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true">
+                <circle
+                  cx="10.5"
+                  cy="10.5"
+                  r="6.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                />
+                <path
+                  d="M15.5 15.5L21 21"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <strong>인기 교양 검색하러 가기</strong>
+              <span>
+                가능 시간과 원하는 조건만 고르면 시간이 겹치지 않는 추천안을
+                만들어 드려요.
+              </span>
+              <em>교양탐색으로 이동 →</em>
+            </Link>
+            <Link href="/my-report" className="banner">
+              <svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true">
+                <rect
+                  x="4.5"
+                  y="3.5"
+                  width="15"
+                  height="18"
+                  rx="2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path d="M9 3.5h6v3H9z" fill="currentColor" />
+                <path
+                  d="M8 11h2M8 14.5h2M8 18h2M12.5 11H16M12.5 14.5H16M12.5 18H16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <strong>
+                내 리포트에서
+                <br />
+                1·2·3지망 정하기
+              </strong>
+              <span>즐겨찾기한 교양으로 지망을 등록하고 모의 경쟁률을 확인하세요.</span>
+              <em>내 리포트로 이동 →</em>
+            </Link>
+          </div>
+          <Next href="#steps-section" />
         </div>
       </section>
-      <section className="howSection">
-        <span className="eyebrow">HOW TO PICK</span>
-        <h2>딱 세 단계면 준비 끝.</h2>
-        <div className="howGrid">
-          {[
-            [
-              "01",
-              "조건을 고르고",
-              "가능 시간과 원하는 수업 스타일을 알려 주세요.",
-            ],
-            [
-              "02",
-              "교양을 찜하고",
-              "추천받거나 검색한 과목을 즐겨찾기해요.",
-            ],
-            [
-              "03",
-              "리포트로 결정해요",
-              "첫 지망 저장은 무료, 리포트는 처음에만 젤리 1개.",
-            ],
-          ].map(([n, t, d]) => (
-            <div key={n}>
-              <span>{n}</span>
-              <h3>{t}</h3>
-              <p>{d}</p>
-            </div>
-          ))}
+
+      <section id="steps-section" className="homeBand" aria-labelledby="steps">
+        <div className="bandInner">
+          <div className="card stepsCard">
+            <h2 id="steps">이렇게 이용해요</h2>
+            <ol className="stepList">
+              <li>
+                <b>STEP 1 · 교양탐색</b>
+                <span>조건을 넣고 추천받은 교양 중 마음에 드는 과목을 즐겨찾기</span>
+              </li>
+              <li aria-hidden="true" className="stepArrow">
+                →
+              </li>
+              <li>
+                <b>STEP 2 · 내 리포트</b>
+                <span>
+                  즐겨찾기한 교양으로 1·2·3지망 등록
+                  <br />
+                  (첫 저장 무료 · 변경 시 젤리 1개)
+                </span>
+              </li>
+              <li aria-hidden="true" className="stepArrow">
+                →
+              </li>
+              <li>
+                <b>STEP 3 · 리포트</b>
+                <span>
+                  모의 경쟁률·강의평·성적 비율·과제/팀플 확인
+                  <br />
+                  (처음 열 때만 젤리 1개)
+                </span>
+              </li>
+            </ol>
+            <a href="#content" className="btn outline pillBtn">
+              맨 위로 ↑
+            </a>
+          </div>
         </div>
       </section>
     </main>

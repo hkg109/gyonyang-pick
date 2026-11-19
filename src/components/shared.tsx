@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { COUNTRIES, DEPARTMENTS, courseMeta } from "@/lib/catalog";
-import type { Course, Profile } from "@/lib/types";
+import { COUNTRIES, DEPARTMENTS } from "@/lib/catalog";
+import type { Profile } from "@/lib/types";
 
-export function Paw({ size = 22 }: { size?: number }) {
+export function Paw({
+  size = 22,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill={color}
       aria-hidden="true"
     >
       <ellipse cx="12" cy="16.5" rx="5.2" ry="4.3" />
@@ -21,7 +27,29 @@ export function Paw({ size = 22 }: { size?: number }) {
     </svg>
   );
 }
-export const Arrow = () => <span aria-hidden="true">↗</span>;
+export function Lock() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" role="img" aria-label="잠김">
+      <rect
+        x="3"
+        y="7"
+        width="10"
+        height="7"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 export const number = (n: number) => n.toLocaleString("ko-KR");
 export const date = (value: string) =>
   new Date(value).getTime()
@@ -50,11 +78,13 @@ export async function api<T>(url: string, body?: unknown): Promise<T> {
 
 export function Modal({
   title,
+  eyebrow,
   onClose,
   children,
   wide = false,
 }: {
   title: string;
+  eyebrow?: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
@@ -82,7 +112,7 @@ export function Modal({
     >
       <div className="modalHead">
         <div>
-          <span className="eyebrow">교냥픽</span>
+          {eyebrow && <span className="modalEyebrow">{eyebrow}</span>}
           <h2 id="modal-title">{title}</h2>
         </div>
         <button className="iconButton" onClick={onClose} aria-label="닫기">
@@ -96,10 +126,8 @@ export function Modal({
 export function Empty({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="empty">
-      <span className="emptyPaw">
-        <Paw size={32} />
-      </span>
-      <h3>{title}</h3>
+      <Paw size={32} color="#BAD6EB" />
+      <strong>{title}</strong>
       <p>{children}</p>
     </div>
   );
@@ -113,8 +141,8 @@ export function ProfileFields({
 }) {
   const names = new Intl.DisplayNames(["ko"], { type: "region" });
   return (
-    <div className="formGrid">
-      <label>
+    <>
+      <label className="field">
         이번 학기 학년
         <select
           value={value.year}
@@ -127,7 +155,7 @@ export function ProfileFields({
           ))}
         </select>
       </label>
-      <label>
+      <label className="field">
         학과
         <select
           value={value.department}
@@ -138,7 +166,7 @@ export function ProfileFields({
           ))}
         </select>
       </label>
-      <label>
+      <label className="field">
         국적
         <select
           value={value.nationality}
@@ -151,78 +179,41 @@ export function ProfileFields({
           ))}
         </select>
       </label>
-      <label>
-        유학생 여부
-        <select
-          value={String(value.international)}
-          onChange={(e) =>
-            onChange({ ...value, international: e.target.value === "true" })
-          }
-        >
-          <option value="false">해당 없음</option>
-          <option value="true">외국인 유학생</option>
-        </select>
-      </label>
-      <p className="muted small span2">
-        학번은 받지 않습니다. 학과·학년·국적은 수강 제한 확인에만 사용해요.
-      </p>
-    </div>
-  );
-}
-export function CourseCard({
-  course,
-  favorite,
-  onFavorite,
-  reason,
-  children,
-}: {
-  course: Course;
-  favorite: boolean;
-  onFavorite: () => void;
-  reason?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <article className="courseCard">
-      <div className="courseTop">
-        <div className="tagRow">
-          <span className="tag">{course.kind}</span>
-          <span className="muted small">{course.area}</span>
+      <fieldset className="field">
+        <legend>유학생 여부</legend>
+        <div className="radioRow">
+          {[
+            [false, "해당 없음"],
+            [true, "외국인 유학생"],
+          ].map(([v, label]) => (
+            <label
+              key={String(v)}
+              className={`radioBox ${value.international === v ? "on" : ""}`}
+            >
+              <input
+                type="radio"
+                name="international"
+                checked={value.international === v}
+                onChange={() => onChange({ ...value, international: !!v })}
+              />
+              {label}
+            </label>
+          ))}
         </div>
-        <button
-          className={`star ${favorite ? "starred" : ""}`}
-          onClick={onFavorite}
-          aria-label={`${course.name} 즐겨찾기 ${favorite ? "해제" : "추가"}`}
-          aria-pressed={favorite}
-        >
-          {favorite ? "★" : "☆"}
-        </button>
-      </div>
-      <h3>{course.name}</h3>
-      <p className="courseMeta">{courseMeta(course)}</p>
-      {reason && (
-        <p className="reason">
-          <Paw size={15} />
-          {reason}
-        </p>
-      )}
-      {["e-러닝 C", "e-러닝 D"].includes(course.kind) && (
-        <p className="small warningText">
-          학점교류 e-러닝 C·D는 학기당 합계 1강좌까지 추천해요.
-        </p>
-      )}
-      {children}
-    </article>
+      </fieldset>
+    </>
   );
 }
 export function Choice({
   values,
   value,
   onChange,
+  pill = false,
 }: {
   values: [string | number, string][];
   value: string | number;
   onChange: (n: string | number) => void;
+  pill?: boolean;
 }) {
   return (
     <div className="choices">
@@ -230,7 +221,7 @@ export function Choice({
         <button
           type="button"
           key={n}
-          className={`choice ${value === n ? "selected" : ""}`}
+          className={`${pill ? "pill" : "choice"} ${value === n ? "on" : ""}`}
           aria-pressed={value === n}
           onClick={() => onChange(n)}
         >
@@ -252,13 +243,17 @@ export function ProfileEditor({
   const [profile, setProfile] = useState(value);
   return (
     <form
+      className="stack"
       onSubmit={(e) => {
         e.preventDefault();
         void onSave(profile);
       }}
     >
       <ProfileFields value={profile} onChange={setProfile} />
-      <button className="button primary full" disabled={busy}>
+      <p className="note">
+        학번은 받지 않습니다. 학과·학년·국적은 수강 제한 확인에만 사용해요.
+      </p>
+      <button className="btn primary full" disabled={busy}>
         저장하기
       </button>
     </form>

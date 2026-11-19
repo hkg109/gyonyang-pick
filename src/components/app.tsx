@@ -13,7 +13,7 @@ import Moderation from "./moderation";
 import MyReportPage from "./my-report";
 import ReportView from "./report-view";
 import ReviewForm from "./review-form";
-import { Arrow, Empty, Modal, Paw, ProfileEditor, api, date } from "./shared";
+import { Empty, Modal, Paw, ProfileEditor, api, date } from "./shared";
 
 export default function App() {
   const path = usePathname();
@@ -136,14 +136,6 @@ export default function App() {
     ["/", "/login", "/signup", "/forgot-password", "/reset-password"].includes(
       path,
     ) || !account;
-  const pageTitle =
-    path === "/my-report"
-      ? "내 리포트"
-      : path === "/jelly"
-        ? "젤리"
-        : path === "/reviews"
-          ? "강의평 입력"
-          : "교양탐색";
   const setRank = (rank: number, id: string | null) =>
     setDraft((old) =>
       old.map((value, i) =>
@@ -151,57 +143,51 @@ export default function App() {
       ),
     );
   const dirty = JSON.stringify(draft) !== JSON.stringify(account?.ranks);
+  const rankLabel = (id: string) => {
+    const i = account?.ranks.indexOf(id) ?? -1;
+    return i >= 0 && account?.saved ? `${i + 1}지망` : "열람한 과목";
+  };
   return (
-    <div className={isHome ? "homeRoot" : "appRoot"}>
+    <div className={isAuth ? "authRoot" : isHome ? "homeRoot" : "appRoot"}>
       <a className="skipLink" href="#content">
         본문으로 건너뛰기
       </a>
-      <header className={`header ${isHome ? "headerHero" : ""}`}>
-        <div className="headerInner">
-          <Link href={account ? "/home" : "/login"} className="brand">
-            <Paw size={25} />
-            교냥픽
-          </Link>
-          <nav aria-label="주 메뉴">
-            {navs.map(([href, label]) => (
-              <Link
-                key={href}
-                href={account ? href : "/login"}
-                className={path.startsWith(href) ? "navActive" : ""}
-                aria-current={path.startsWith(href) ? "page" : undefined}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="headerActions">
-            {account ? (
-              <>
-                <Link href="/jelly" className="walletPill">
-                  <Paw size={16} />
-                  <span>
-                    보유 젤리 <b>{account.balance}개</b>
-                  </span>
-                </Link>
-                <button
-                  className="avatar"
-                  aria-label="내 정보"
-                  onClick={() => setProfileOpen(true)}
+      {ready && !isAuth && (
+        <header className={`header ${isHome ? "clear" : ""}`}>
+          <div className="headerInner">
+            <Link href="/home" className="brand">
+              <Paw size={22} />
+              교냥픽
+            </Link>
+            <nav aria-label="주 메뉴">
+              {navs.map(([href, label]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={path.startsWith(href) ? "on" : ""}
+                  aria-current={path.startsWith(href) ? "page" : undefined}
                 >
-                  {account.profile.year}
-                </button>
-              </>
-            ) : (
-              <Link className="headerLogin" href="/signup">
-                처음이신가요? <b>회원가입 ↗</b>
+                  {label}
+                </Link>
+              ))}
+            </nav>
+            <div className="headerActions">
+              <Link href="/jelly" className="walletPill">
+                <Paw size={16} />
+                보유 젤리 {account!.balance}개
               </Link>
-            )}
+              <button
+                type="button"
+                className="avatar"
+                aria-label="내 정보"
+                onClick={() => setProfileOpen(true)}
+              />
+            </div>
           </div>
-        </div>
-      </header>
-      {ready && mode === "demo" && (
+        </header>
+      )}
+      {ready && mode === "demo" && !isHome && (
         <div className="demoStrip">
-          <span className="demoDot" />
           로컬 시연 · 과목과 교수 정보는 예시이며 실제 결제는 발생하지 않아요.
         </div>
       )}
@@ -234,40 +220,8 @@ export default function App() {
           ) : (
             <main
               id="content"
-              className={`main ${path === "/reviews" ? "narrow" : ""}`}
+              className={`page ${path === "/reviews" ? "narrow" : ""}`}
             >
-              <div className="pageHeading">
-                <div>
-                  <span className="eyebrow">
-                    {path.startsWith("/explore")
-                      ? "FIND YOUR PICK"
-                      : path === "/my-report"
-                        ? "MY REPORT"
-                        : path === "/reviews"
-                          ? "SHARE YOUR EXPERIENCE"
-                          : "MY JELLY"}
-                  </span>
-                  <h1>{pageTitle}</h1>
-                  <p>
-                    {path.startsWith("/explore")
-                      ? "가능 시간과 취향을 고르면, 나에게 맞는 교양을 찾아드려요."
-                      : path === "/my-report"
-                        ? "찜한 교양으로 지망을 정하고, 더 확실하게 선택하세요."
-                        : path === "/jelly"
-                          ? "작은 참여로 모으고, 필요한 리포트에 사용하세요."
-                          : "당신의 경험이 다음 학기의 더 좋은 선택이 됩니다."}
-                  </p>
-                </div>
-                {path.startsWith("/explore") ? (
-                  <Link className="textLink" href="/reviews">
-                    강의평 쓰고 젤리 받기 <Arrow />
-                  </Link>
-                ) : (
-                  <span className="semester">
-                    {SEMESTER.replace("-", "학년도 ")}학기
-                  </span>
-                )}
-              </div>
               {path === "/explore" && (
                 <ExploreConditions
                   filters={filters}
@@ -322,17 +276,17 @@ export default function App() {
                 <ReviewForm
                   state={state!}
                   busy={busy}
-                  onSubmit={async (review) => {
+                  onSubmit={async (review, stay) => {
                     const before = account!.balance;
                     const next = await act({ type: "review", review });
-                    if (next) {
-                      notify(
-                        next.account.balance > before
-                          ? "강의평 2과목 입력 완료! 젤리 1개를 받았어요."
-                          : "강의평을 저장했어요. 한 과목 더 작성하면 젤리 1개!",
-                      );
-                      router.push("/jelly");
-                    }
+                    if (!next) return false;
+                    notify(
+                      next.account.balance > before
+                        ? "강의평 2과목 입력 완료! 젤리 1개를 받았어요."
+                        : "강의평을 저장했어요. 한 과목 더 작성하면 젤리 1개!",
+                    );
+                    if (!stay) router.push("/jelly");
+                    return true;
                   }}
                 />
               )}
@@ -384,33 +338,39 @@ export default function App() {
         </div>
       )}
       {confirm && (
-        <Modal title="리포트를 열까요?" onClose={() => setConfirm(null)}>
-          <p className="muted">{confirm.name} · 최초 열람</p>
+        <Modal
+          title="리포트를 열까요?"
+          eyebrow={`${rankLabel(confirm.id)} · ${confirm.name}`}
+          onClose={() => setConfirm(null)}
+        >
           <div className="costTable">
             <div>
-              <span>현재 젤리</span>
+              <span>
+                <Paw size={14} /> 현재 젤리
+              </span>
               <b>{account!.balance}개</b>
             </div>
             <div>
               <span>이번에 쓰는 젤리</span>
               <b className="dangerText">1개</b>
             </div>
-            <div>
-              <strong>열고 난 뒤 남는 젤리</strong>
+            <div className="total">
+              <span>열고 난 뒤 남는 젤리</span>
               <b>{Math.max(0, account!.balance - 1)}개</b>
             </div>
           </div>
-          <p className="muted small">
+          <p className="muted">
             처음 열 때만 젤리 1개가 차감돼요. 이후에는 지망에서 빼도 무료로 다시
-            볼 수 있어요.
+            볼 수 있어요. 젤리가 부족하면 <Link className="textLink" href="/jelly" onClick={() => setConfirm(null)}>젤리 페이지</Link>에서
+            무료로 받을 수 있어요.
           </p>
           <div className="modalActions">
-            <button className="button outline" onClick={() => setConfirm(null)}>
+            <button type="button" className="btn outline lg" onClick={() => setConfirm(null)}>
               취소
             </button>
             {account!.balance < 1 ? (
               <Link
-                className="button primary"
+                className="btn primary lg"
                 href="/jelly"
                 onClick={() => setConfirm(null)}
               >
@@ -418,18 +378,24 @@ export default function App() {
               </Link>
             ) : (
               <button
-                className="button primary"
+                type="button"
+                className="btn primary lg"
                 disabled={busy}
                 onClick={() => void unlock()}
               >
-                젤리를 사용해 리포트 열기
+                젤리를 사용해서 리포트 열기
               </button>
             )}
           </div>
         </Modal>
       )}
       {report && (
-        <Modal title={report.course.name} wide onClose={() => setReport(null)}>
+        <Modal
+          title={report.course.name}
+          eyebrow={`${rankLabel(report.course.id)} 리포트${report.example ? " · 과목 정보는 시연용 예시" : ""}`}
+          wide
+          onClose={() => setReport(null)}
+        >
           <ReportView
             report={report}
             busy={busy}
@@ -447,7 +413,7 @@ export default function App() {
             }}
           />
           <button
-            className="button outline full"
+            className="btn outline full lg"
             onClick={() => setReport(null)}
           >
             내 리포트로 돌아가기
@@ -489,7 +455,7 @@ export default function App() {
             }}
           />
           <button
-            className="textLink logout"
+            className="linkButton logout"
             disabled={busy}
             onClick={() =>
               void run(async () => {
@@ -509,12 +475,12 @@ export default function App() {
           <p className="muted small">현재 잔액 {account!.balance}개</p>
           {account!.entries.length ? (
             account!.entries.map((e) => (
-              <div className="entry" key={e.id}>
+              <div className="historyRow" key={e.id}>
                 <div>
                   {e.reason}
                   <small>{date(e.createdAt)}</small>
                 </div>
-                <strong className={e.delta > 0 ? "blueText" : ""}>
+                <strong className={e.delta > 0 ? "accentText" : ""}>
                   {e.delta > 0 ? "+" : "−"}
                   {Math.abs(e.delta)}
                 </strong>
@@ -546,7 +512,7 @@ export default function App() {
             </p>
           </div>
           <button
-            className="button primary full"
+            className="btn primary full"
             onClick={() => setTerms(null)}
           >
             확인했어요
