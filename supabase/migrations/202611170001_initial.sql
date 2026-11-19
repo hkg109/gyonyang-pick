@@ -174,6 +174,7 @@ begin
     r:=p_action->'review';
     if r->>'text' ~ '[[:alnum:]._%+-]+@[[:alnum:].-]+[.][[:alpha:]]{2,}|01[016789][- .]?[0-9]{3,4}[- .]?[0-9]{4}' then raise exception '강의평에 개인정보를 적지 말아 주세요.';end if;
     if jsonb_typeof(r->'attendance') is distinct from 'array' or jsonb_array_length(r->'attendance') not between 1 and 4 or exists(select 1 from jsonb_array_elements_text(r->'attendance') a where a not in ('전자출결','호명','서명','반영 안 함')) then raise exception '강의평 출석 방식을 확인해 주세요.';end if;
+    if not exists(select 1 from public.offerings where id=r->>'courseId' and data->>'semester'<>'2026-2') then raise exception '지난 학기에 들은 강좌만 강의평을 남길 수 있어요.';end if;
     if exists(select 1 from public.reviews where user_id=uid and course_id=r->>'courseId') then raise exception '이미 강의평을 남긴 강좌입니다.';end if;
     insert into public.reviews(user_id,course_id,rating,grade,assignment,team,exams,attendance,text) values(uid,r->>'courseId',(r->>'rating')::integer,r->>'grade',(r->>'assignment')::integer,(r->>'team')::integer,(r->>'exams')::integer,r->'attendance',trim(r->>'text'));
     select count(*)/2 into pairs from public.reviews where user_id=uid and not hidden;

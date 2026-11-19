@@ -131,6 +131,9 @@ describe.sequential("PostgreSQL 업무 함수와 권한", () => {
     await expect(
       action({ type: "review", review: { ...review, courseId: "course-22" } }),
     ).rejects.toThrow("이미");
+    await expect(
+      action({ type: "review", review: { ...review, courseId: "course-3" } }),
+    ).rejects.toThrow("지난 학기");
     await action({ type: "save", ranks: ["course-2", null, null], version: 1 });
     expect((await account()).balance).toBe(0);
     await action({ type: "open", courseId: "course-1" });

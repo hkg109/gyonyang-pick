@@ -108,7 +108,7 @@ export function validateReview(
   const r = review.review;
   if (
     !r ||
-    !catalog.some((c) => c.id === r.courseId) ||
+    !catalog.some((c) => c.id === r.courseId && c.semester !== SEMESTER) ||
     !Number.isInteger(r.rating) ||
     r.rating < 1 ||
     r.rating > 5 ||
