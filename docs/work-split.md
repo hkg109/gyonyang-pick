@@ -1,0 +1,109 @@
+# 교냥픽 작업 분담
+
+작성일: 2026-11-19
+
+1차 MVP(`2215fbc`)의 코드는 대부분 들어와 있다. 남은 일을 **백엔드·Supabase(윤정재)**와 **프론트엔드(한지석)**로 나눈다. 정책과 단계별 기준은 [개발 계획](development-plan.md)을 따르고, 설정 절차는 [README](../README.md)의 "Supabase 연결"을 따른다.
+
+개발 외 역할은 개발 계획 6장대로다. **이진규**는 화면·문구·시안 검수와 발표 자료를, **이성준**은 과목 데이터, 정책·약관 검토, 테스트 시나리오, QA를 맡는다. 시안 검수 결과와 테스트 시나리오는 이슈로 받아 각 개발자가 반영한다.
+
+## 1. 경계
+
+| 구분 | 백엔드·Supabase (윤정재) | 프론트엔드 (한지석) |
+| --- | --- | --- |
+| 담당 파일 | `supabase/`, `src/lib/server.ts`, `src/lib/domain.ts`, `src/lib/recommend.ts`, `src/app/api/**`, `src/app/auth/**`, `scripts/`, `tests/database.test.ts` | `src/components/**`, `src/app/globals.css`, `src/app/layout.tsx`, `src/app/[[...path]]/`, 브라우저 E2E 테스트 |
+| 같이 보는 파일 | `src/lib/types.ts`, `src/lib/catalog.ts` | 같음 |
+
+- **같이 보는 파일을 바꿀 때는 먼저 상대에게 알린다.** API 응답 형식이 여기서 정해진다.
+- 각자 작업 브랜치에서 PR을 열고, 상대가 확인한 뒤 `main`에 합친다.
+- 프론트엔드는 Supabase 없이 **로컬 시연 모드**로 바로 작업할 수 있다. `.env.local`의 Supabase 값을 비우고 `npm run dev`를 실행한 뒤 "가입 없이 시연 시작하기"를 누른다.
+
+## 2. API 약속
+
+프론트엔드는 아래 API만 호출한다. 모든 POST는 같은 출처(`Origin`)에서만 받고, 실패하면 `{ error: string }`과 상태 코드를 돌려준다.
+
+| API | 용도 | 응답 |
+| --- | --- | --- |
+| `GET /api/session` | 로그인 상태, 계정, 강좌 목록 | `Snapshot`, 로그인 전에는 `{ account: null, mode }` |
+| `POST /api/auth` | `signup`, `signin`, `verify`, `reset`, `password`, `logout`, `demo` | `{ ok: true }` |
+| `POST /api/recommend` | `Filters`로 추천 | `{ plans: Plan[] }` (경쟁률 수치 없음) |
+| `POST /api/action` | `{ action: Mutation, requestId: uuid }` | 갱신된 `Snapshot` |
+| `GET /api/report/[id]` | 열람 권한이 있는 리포트 | `Report` |
+| `GET`·`POST /api/moderation` | 운영자 신고 목록, 숨김·복구 | `{ reviews }`, `{ ok: true }` |
+| `GET /auth/callback` | 메일 인증·비밀번호 재설정 링크 | `/home` 또는 `/reset-password`로 이동 |
+
+`Mutation`의 종류는 `favorite`, `save`, `sample`, `open`, `review`, `report`, `profile`이다. 타입은 `src/lib/types.ts`가 기준이다.
+
+- **`requestId`는 버튼 클릭 한 번마다 새로 만들고, 재시도할 때는 같은 값을 다시 보낸다.** 서버는 같은 `requestId`를 한 번만 처리하므로 중복 차감을 막는 데 필요하다.
+- 젤리 차감(`save` 변경, `open` 최초 열람)은 사용자가 확인한 뒤에만 보낸다.
+
+## 3. 백엔드·Supabase — 윤정재
+
+### 3.1 Supabase 연동 (가장 먼저)
+
+1. Supabase 프로젝트 생성(무료 플랜, 서울 리전)
+2. SQL Editor에서 `.local/supabase-setup.sql` 실행. 마이그레이션과 예시 강좌 24개가 한 트랜잭션으로 들어간다. 이 파일은 git에 없으므로 받아서 쓰거나, 마이그레이션을 실행한 뒤 `npm run db:seed`를 실행한다.
+3. `.env.local`에 URL, publishable 키, service role 키 입력. **키는 커밋하거나 채팅에 붙여넣지 않는다.**
+4. Authentication에서 이메일 확인 켜기, Gmail SMTP(앱 비밀번호) 설정
+5. Before User Created 훅에 `public.before_user_created` 연결
+6. Site URL과 Redirect URL에 `/auth/callback`, `/auth/callback?next=/reset-password` 등록
+7. Cron 활성화 후 `supabase/cron.sql` 실행. 수강신청 일정을 실제 값으로 변경
+8. 운영자 계정 등록(`operators`)과 시연 계정 테스트 충전(`grant_test_credit`)
+
+**완료 기준:** gmail 가입은 거부되고 한양 메일 가입·인증·로그인이 된다. `/api/session`이 `mode: "supabase"`로 응답한다. 5분 뒤 `aggregation_status.last_success`가 갱신된다. 완료되면 프론트엔드에 알린다.
+
+### 3.2 남은 백엔드 작업
+
+- [x] 강의평 학기 검사: 지난 학기 강좌만 강의평을 받도록 수정하고 테스트 추가(2026-11-19 반영)
+- [ ] `profile` 수정 시 학과가 `DEPARTMENTS` 목록에 있는지 DB에서도 검사
+- [ ] 실제 Supabase에서 동시 요청 확인: 같은 최초 열람을 여러 번 동시에 보내도 1개만 차감되는지
+- [ ] Vercel 프로젝트 연결, 환경 변수 3개 등록, 배포 주소를 Supabase Redirect URL에 추가. Hobby 플랜에서 지석의 커밋도 막힘 없이 배포되는지 확인(막히면 GitHub Actions에서 Vercel CLI로 배포)
+- [ ] 주 1회 `supabase db dump` 백업(개인정보가 있으므로 git 밖에 보관)
+- [ ] 실제 강좌 데이터를 넣기 전에 조합 탐색 제한(최대 30강좌)을 교체하고 응답 시간 측정
+
+## 4. 프론트엔드 — 한지석
+
+화면은 `src/components/app.tsx`의 `App` 하나가 경로별로 그린다. 경로는 `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/home`, `/explore`, `/my-report`, `/jelly`, `/reviews`, `/admin`이다.
+
+### 4.1 지금 바로 할 수 있는 작업 (시연 모드)
+
+- [ ] 시안 6개(Main, Signup, Home, Explore, ExploreResult, MyReport)와 젤리·리포트·강의평 이미지 시안 대비 차이 수정. 대조와 검수는 이진규가 하고 결과를 이슈로 전달한다.
+- [ ] 기본 시연 순서(README) 전체를 브라우저에서 끝까지 실행: 첫 지망 무료 저장 → 표본 +1 → 최초 열람 −1 → 무료 재열람 → 강의평 2개 +1 → 지망 변경 −1 → 지망에서 뺀 강좌 재열람
+- [ ] 모바일(375px) 화면 점검
+- [ ] 키보드만으로 팝업 열기·닫기(ESC)·버튼 조작 확인
+- [ ] 로딩·오류·빈 목록 안내 문구 점검. 잔액 부족, 추천 조합 없음, 표본 부족 상태 포함
+- [ ] 버튼 문구 확인: 첫 저장은 "무료로 저장", 이후는 "젤리 1개로 변경", 열람한 리포트는 "다시 보기(무료)"
+- [ ] 이성준의 테스트 시나리오를 바탕으로 Playwright 시연 순서 E2E 테스트 작성(`tests/e2e/`). 시연 모드로 실행하고, 개발 계획대로 PR마다 돌도록 `.github/workflows/ci.yml`에 추가한다(CI 파일 변경은 정재에게 알린다).
+- [ ] `app.tsx`(약 2,450줄)를 화면별 파일로 나눌지 검토. 나눈다면 동작은 그대로 두고 파일만 옮긴다.
+
+### 4.2 Supabase 연동 후 할 작업 (3.1 완료 뒤)
+
+- [ ] 가입 → 인증 메일 → 콜백 로그인 흐름. 인증 코드 입력 화면 포함
+- [ ] 비밀번호 찾기 → 재설정 링크 → `/reset-password` 흐름
+- [ ] 인증 실패(`/login?error=verification`) 안내
+- [ ] 운영자 계정으로 `/admin` 신고 목록과 숨김·복구
+- [ ] 테스트 충전 계정으로 추천안 3개 표시 확인
+
+### 4.3 공개 전
+
+- [ ] 정식 약관·개인정보 처리 문구 반영(현재 버전 `2026-11-17`은 임시). 문구가 바뀌면 백엔드의 `terms_version`도 함께 바꾼다.
+
+## 5. 순서와 의존 관계
+
+```mermaid
+flowchart LR
+    A[3.1 Supabase 연동] --> B[4.2 인증·운영 화면 확인]
+    A --> C[3.2 Vercel 배포]
+    C --> D[배포 주소로 전체 흐름 점검]
+    E[4.1 시연 모드 화면 작업] --> D
+    B --> D
+```
+
+4.1은 3.1을 기다리지 않고 바로 시작한다. 마지막 점검(7단계)은 둘 다 끝난 뒤 배포 주소에서 함께 한다.
+
+## 6. 개발 외 확인 사항
+
+개발 계획 Step 1의 남은 정책은 이성준이 확정하고 개발 계획에 반영한다. 현재 코드는 아래 항목을 임시 기준으로 구현했다.
+
+- [ ] 학년·학과·국적·P/F 수강 제한을 검사하는 데이터 기준
+- [ ] 학년별 정원이 있는 강좌의 집계 대상과 정원 기준
+- [ ] 정식 약관·개인정보 처리 문구
