@@ -1,6 +1,72 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import type { Course, Snapshot } from "@/lib/types";
 import { Paw } from "./shared";
+
+// Same breakpoint as the home scroll-snap rule in globals.css.
+const PAGED = "(min-width: 641px) and (min-height: 600px)";
+
+// A small wheel turn, swipe or arrow/Page key moves one whole section.
+function useSectionPaging() {
+  useEffect(() => {
+    const media = matchMedia(PAGED);
+    let lastMove = 0;
+    let lastWheel = 0;
+    let touchY: number | null = null;
+    const sections = () => [
+      ...document.querySelectorAll<HTMLElement>("#content > section, .homeRoot .footer"),
+    ];
+    // Returns false when the current section is taller than the screen and still has room to scroll natively.
+    function go(dir: 1 | -1) {
+      const list = sections();
+      const y = scrollY;
+      const current = list.reduce((best, s, i) =>
+        Math.abs(s.offsetTop - y) < Math.abs(list[best].offsetTop - y) ? i : best, 0);
+      const box = list[current].getBoundingClientRect();
+      if (dir === 1 && box.bottom > innerHeight + 2) return false;
+      if (dir === -1 && box.top < -2) return false;
+      const target = list[Math.min(list.length - 1, Math.max(0, current + dir))];
+      target.scrollIntoView({ behavior: "smooth", block: target.matches(".footer") ? "end" : "start" });
+      lastMove = Date.now();
+      return true;
+    }
+    function onWheel(e: WheelEvent) {
+      if (!media.matches || Math.abs(e.deltaY) < 4 || document.querySelector("dialog[open]")) return;
+      const now = Date.now();
+      const streaming = now - lastWheel < 250;
+      lastWheel = now;
+      // Trackpads keep firing during inertia; ignore that tail instead of skipping two sections.
+      if (streaming && now - lastMove < 1500) return e.preventDefault();
+      if (go(e.deltaY > 0 ? 1 : -1)) e.preventDefault();
+    }
+    function onKey(e: KeyboardEvent) {
+      const dir = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 }[e.key] as 1 | -1 | undefined;
+      const target = e.target as HTMLElement;
+      if (!dir || !media.matches || document.querySelector("dialog[open]")) return;
+      if (target.closest("input, select, textarea, [role=tablist]")) return;
+      if (Date.now() - lastMove < 600 || go(dir)) e.preventDefault();
+    }
+    const onTouchStart = (e: TouchEvent) => (touchY = e.touches[0].clientY);
+    function onTouchEnd(e: TouchEvent) {
+      if (touchY === null || !media.matches) return;
+      const dy = touchY - e.changedTouches[0].clientY;
+      touchY = null;
+      if (Math.abs(dy) > 30) go(dy > 0 ? 1 : -1);
+    }
+    addEventListener("wheel", onWheel, { passive: false });
+    addEventListener("keydown", onKey);
+    addEventListener("touchstart", onTouchStart, { passive: true });
+    addEventListener("touchend", onTouchEnd);
+    return () => {
+      removeEventListener("wheel", onWheel);
+      removeEventListener("keydown", onKey);
+      removeEventListener("touchstart", onTouchStart);
+      removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+}
 
 const Next = ({ href }: { href: string }) => (
   <a href={href} className="nextHint" aria-label="다음 섹션으로">
@@ -25,6 +91,7 @@ export default function HomePage({
   account: Snapshot["account"];
   byId: (id: string | null) => Course | undefined;
 }) {
+  useSectionPaging();
   return (
     <main id="content">
       <section className="hero" aria-label="교냥픽 소개">

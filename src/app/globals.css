@@ -763,7 +763,9 @@ input[type="radio"] {
 }
 .hero {
   position: relative;
-  min-height: 760px;
+  min-height: 100vh;
+  min-height: 100svh;
+  scroll-snap-align: start;
   display: flex;
   align-items: center;
   padding: 96px 32px 72px;
@@ -933,7 +935,9 @@ input[type="radio"] {
   font-size: 13px;
 }
 .homeBand {
-  min-height: 760px;
+  scroll-snap-align: start;
+  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   background: radial-gradient(circle at 50% 30%, #ffffff 0%, #f2f5fb 55%, #e4eaf6 100%);
 }
@@ -1862,5 +1866,15 @@ input[type="radio"] {
   }
   .authMain {
     padding: 24px 16px;
+  }
+}
+
+/* Home: one screen per section; a small wheel, drag or arrow key moves to the next one. */
+@media (min-width: 641px) and (min-height: 600px) {
+  html:has(.homeRoot) {
+    scroll-snap-type: y mandatory;
+  }
+  .homeRoot .footer {
+    scroll-snap-align: end;
   }
 }
