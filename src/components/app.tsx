@@ -9,7 +9,7 @@ import AuthView from "./auth-view";
 import { ExploreConditions, ExploreResults } from "./explore";
 import HomePage from "./home";
 import JellyPage, { SampleForm } from "./jelly";
-import Moderation from "./moderation";
+import AdminPage from "./admin";
 import MyReportPage from "./my-report";
 import ReportView from "./report-view";
 import ReviewForm from "./review-form";
@@ -294,7 +294,12 @@ export default function App() {
                 />
               )}
               {path === "/admin" && (
-                <Moderation courses={courses} allowed={!!account?.admin} />
+                <AdminPage
+                  allowed={!!account?.admin}
+                  courses={courses}
+                  notify={notify}
+                  onCoursesChanged={async () => setState(await api<Snapshot>("/api/session"))}
+                />
               )}
               {![
                 "/explore",
@@ -459,6 +464,15 @@ export default function App() {
                 setProfileOpen(false);
             }}
           />
+          {account!.admin && (
+            <Link
+              href="/admin"
+              className="btn outline full adminButton"
+              onClick={() => setProfileOpen(false)}
+            >
+              관리자 모드
+            </Link>
+          )}
           <button
             className="linkButton logout"
             disabled={busy}

@@ -1878,3 +1878,60 @@ input[type="radio"] {
     scroll-snap-align: end;
   }
 }
+
+/* admin & AI */
+.adminLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.adminList {
+  max-height: 560px;
+  overflow-y: auto;
+}
+.meetingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.meetingRow select {
+  width: 110px;
+}
+.meetingRow input {
+  width: 80px;
+}
+.multiSelect {
+  min-height: 140px;
+  padding: 6px;
+}
+.fitContent {
+  align-self: flex-start;
+}
+.adminButton {
+  margin-top: 16px;
+}
+.aiBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--accent-pale);
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.aiBox p {
+  line-height: 1.7;
+}
+code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .adminLayout {
+    grid-template-columns: 1fr;
+  }
+}
