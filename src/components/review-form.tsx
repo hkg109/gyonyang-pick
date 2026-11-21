@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SEMESTER } from "@/lib/catalog";
 import type { Mutation, Snapshot } from "@/lib/types";
-import { Choice, Paw } from "./shared";
+import { Choice, Empty, Paw } from "./shared";
 
 type ReviewInput = Extract<Mutation, { type: "review" }>["review"];
 const LEVELS: [number, string][] = [
@@ -63,6 +63,17 @@ export default function ReviewForm({
     if (ok && stay) resetCourse();
   }
 
+  if (!semesters.length)
+    return (
+      <div className="card">
+        <Empty title="강의평을 남길 수 있는 지난 학기 강좌가 없어요">
+          지난 학기 강좌 정보가 등록되면 강의평을 입력할 수 있어요.{" "}
+          <Link className="textLink" href="/jelly">
+            젤리로 돌아가기 →
+          </Link>
+        </Empty>
+      </div>
+    );
   return (
     <form
       className="reviewForm"

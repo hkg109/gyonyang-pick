@@ -26,7 +26,7 @@ export default function App() {
     null,
   );
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<Plan[] | null>(null);
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<(string | null)[]>([null, null, null]);

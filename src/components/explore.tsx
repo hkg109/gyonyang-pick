@@ -248,7 +248,7 @@ export function ExploreResults({
   favorite,
 }: {
   filters: Filters;
-  plans: Plan[];
+  plans: Plan[] | null;
   tab: number;
   setTab: (n: number) => void;
   search: string;
@@ -258,6 +258,18 @@ export function ExploreResults({
   byId: (id: string | null) => Course | undefined;
   favorite: (id: string) => void;
 }) {
+  // null means no recommendation was requested yet (e.g. the results URL was opened directly).
+  if (!plans)
+    return (
+      <div className="card">
+        <Empty title="먼저 추천 조건을 골라 주세요">
+          가능 시간과 원하는 조건을 고르면 추천안을 만들어 드려요.{" "}
+          <Link className="textLink" href="/explore">
+            조건 고르러 가기 →
+          </Link>
+        </Empty>
+      </div>
+    );
   const plan = plans[tab];
   const matches = search.trim()
     ? courses.filter(
