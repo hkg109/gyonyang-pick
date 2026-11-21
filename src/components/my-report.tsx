@@ -1,7 +1,55 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { courseMeta } from "@/lib/catalog";
 import type { Course, Mutation, Snapshot } from "@/lib/types";
 import { Empty, Paw, date } from "./shared";
+
+// Calls Claude only on request (it costs money); the answer is tied to the candidates it was asked about.
+function AdviceBox({ draft }: { draft: (string | null)[] }) {
+  const key = JSON.stringify(draft);
+  const [answer, setAnswer] = useState<{ key: string; text: string } | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function ask() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/advice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ranks: draft }),
+      });
+      // A route that is not deployed yet returns the app's HTML page instead of JSON.
+      const data = res.headers.get("content-type")?.includes("json") ? await res.json() : null;
+      if (!data || !res.ok || typeof data.text !== "string")
+        throw new Error(data?.error ?? "지금은 AI 도우미를 쓸 수 없어요.");
+      setAnswer({ key, text: data.text });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <div className="aiBox" aria-live="polite">
+      <div className="cardHead">
+        <strong>AI 지망 도우미</strong>
+        <button type="button" className="btn outline small" disabled={loading} onClick={() => void ask()}>
+          {loading ? "생각하는 중…" : answer?.key === key ? "다시 물어보기" : "AI에게 물어보기"}
+        </button>
+      </div>
+      {answer?.key === key ? (
+        <p>{answer.text}</p>
+      ) : (
+        <p className="muted small">지금 고른 1·2·3지망 순서가 괜찮은지 모의 경쟁률을 바탕으로 짧게 알려 드려요. 젤리는 쓰지 않아요.</p>
+      )}
+      {error && <p className="dangerText small">{error}</p>}
+      <span className="muted small">모의 경쟁률은 이용자 지망으로 추정한 값이에요. 하루 5번까지 물어볼 수 있어요.</span>
+    </div>
+  );
+}
 
 export default function MyReportPage({
   state,
@@ -89,6 +137,7 @@ export default function MyReportPage({
             );
           })}
         </div>
+        {dirty && draft.some(Boolean) && <AdviceBox draft={draft} />}
         <div className="saveBar">
           <span className={dirty ? "" : "muted"}>{message}</span>
           {dirty || firstSave ? (

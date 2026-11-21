@@ -3,7 +3,8 @@
 import type { Report } from "@/lib/types";
 import { date } from "./shared";
 
-const AMOUNT = ["없음", "적음", "보통", "많음"];
+type AiSummary = { text: string; reviewCount: number; updatedAt: string };
+const AMOUNT =["없음", "적음", "보통", "많음"];
 const EXAMS = ["없음", "1회", "2회", "3회 이상"];
 // Most common answer among reviews, or null when nobody answered.
 const mode = <T,>(values: T[]) =>
@@ -23,6 +24,8 @@ export default function ReportView({
   onReport: (id: string) => Promise<void>;
 }) {
   const { course, stats, reviews } = report;
+  // `summary` comes from the backend once the Claude summary API ships (docs/admin-api.md 4.1).
+  const summary = (report as Report & { summary?: AiSummary | null }).summary;
   const sufficient = stats.ranks[0] >= 5 && course.capacity > 0;
   const ratio = course.capacity ? Math.round((stats.ranks[0] / course.capacity) * 100) : null;
   const level =
@@ -113,6 +116,16 @@ export default function ReportView({
           <strong>{rating ?? "—"}</strong>
           <span>/ 5 {fromReviews ? "만족도 평균" : "시연용 예시 평가"}</span>
         </p>
+        {summary && (
+          <div className="aiBox">
+            <strong>AI 강의평 요약</strong>
+            <p>{summary.text}</p>
+            <span className="muted small">
+              강의평 {summary.reviewCount}건을 Claude가 요약했어요 · {date(summary.updatedAt)} · 원문과 다를 수 있으니
+              아래 강의평도 확인해 주세요.
+            </span>
+          </div>
+        )}
         {reviews.length ? (
           <ul className="plainList">
             {reviews.map((r) => (
