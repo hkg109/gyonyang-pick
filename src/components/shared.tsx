@@ -82,9 +82,11 @@ export function Modal({
   onClose,
   children,
   wide = false,
+  returnFocus,
 }: {
   title: string;
   eyebrow?: string;
+  returnFocus?: HTMLElement | null;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
@@ -93,11 +95,14 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current!;
     const old = document.body.style.overflow;
+    const opener = returnFocus ?? (document.activeElement as HTMLElement | null);
     dialog.showModal();
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = old;
       dialog.close();
+      // React removes the dialog before this runs, so the browser cannot restore focus itself.
+      if (opener?.isConnected) opener.focus();
     };
   }, []);
   return (

@@ -40,6 +40,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [path]);
   const pending = useRef(false);
+  // The opening button is disabled while busy, so remember it before the modal mounts.
+  const opener = useRef<HTMLElement | null>(null);
   const notify = (text: string, error = false) => setNotice({ text, error });
   useEffect(() => {
     api<Snapshot & { account: Snapshot["account"] | null }>("/api/session")
@@ -102,6 +104,7 @@ export default function App() {
     });
   }
   async function openReport(course: Course) {
+    opener.current = document.activeElement as HTMLElement | null;
     if (!state) return;
     if (!state.account.unlocked.includes(course.id)) {
       setConfirm(course);
@@ -340,6 +343,7 @@ export default function App() {
       {confirm && (
         <Modal
           title="리포트를 열까요?"
+          returnFocus={opener.current}
           eyebrow={`${rankLabel(confirm.id)} · ${confirm.name}`}
           onClose={() => setConfirm(null)}
         >
@@ -392,6 +396,7 @@ export default function App() {
       {report && (
         <Modal
           title={report.course.name}
+          returnFocus={opener.current}
           eyebrow={`${rankLabel(report.course.id)} 리포트${report.example ? " · 과목 정보는 시연용 예시" : ""}`}
           wide
           onClose={() => setReport(null)}
