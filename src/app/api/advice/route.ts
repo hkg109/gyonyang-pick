@@ -38,14 +38,17 @@ export async function POST(request: Request) {
     if (candidates.length === 0)
       throw new AppError("1개 이상의 지망 후보를 선택해 주세요.");
 
-    if (!geminiConfigured())
+    if (!geminiConfigured()) {
+      console.error("[api/advice] GEMINI_API_KEY is missing");
       throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
+    }
 
     if (state.mode === "supabase") {
       const { error } = await (await supabase()).rpc("consume_ai_advice_quota");
       if (error) {
         if (error.message.includes("모두 사용"))
           throw new AppError("오늘은 AI 도우미를 모두 사용했어요.", 429);
+        console.error("[api/advice] quota rpc error:", error.message);
         throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
       }
     } else {

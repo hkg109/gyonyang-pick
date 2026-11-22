@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { AppError } from "./domain";
 import type { Course, PublicStats, ReportSummary, Review } from "./types";
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 
 export const geminiConfigured = () => !!process.env.GEMINI_API_KEY?.trim();
 
@@ -28,26 +28,37 @@ async function callGemini(
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const payload = JSON.stringify({
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens,
+    },
+  });
+
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens,
-        },
-      }),
+      body: payload,
       signal: AbortSignal.timeout(12000),
-    },
-  );
-  if (!res.ok) {
+    });
+    if (res.status !== 503 || attempt === 1) break;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!res || !res.ok) {
+    const detail = res ? await res.text().catch(() => "") : "";
+    console.error(
+      "[ai] Gemini HTTP error:",
+      res?.status ?? 0,
+      detail.slice(0, 400),
+    );
     throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
   }
   const data = (await res.json()) as {
@@ -57,7 +68,10 @@ async function callGemini(
     .map((p) => p.text ?? "")
     .join("")
     .trim();
-  if (!text) throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
+  if (!text) {
+    console.error("[ai] Gemini empty response:", JSON.stringify(data).slice(0, 400));
+    throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
+  }
   return text;
 }
 
