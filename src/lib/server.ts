@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { readFile, mkdir, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { CATALOG } from "./catalog";
+import { getOrCreateReviewSummary } from "./ai";
 import {
   aggregate,
   AppError,
@@ -256,6 +257,7 @@ export async function getReport(request: Request, id: string): Promise<Report> {
     ? reviews.reduce((n, r) => n + r.rating, 0) / reviews.length
     : null;
   if (stats && stats.ranks[0] < 5) stats = { ...stats, ranks: [0, 0, 0] };
+  const summary = await getOrCreateReviewSummary(id, reviews, state.mode);
   return {
     course,
     stats: stats ?? {
@@ -268,7 +270,12 @@ export async function getReport(request: Request, id: string): Promise<Report> {
     rating: actualRating,
     grades: gradeDistribution(reviews),
     example: course.example,
+    summary,
   };
+}
+export async function requireAdmin(request: Request) {
+  if (!configured() || !(await getSnapshot(request)).account.admin)
+    throw new AppError("운영자 권한이 필요합니다.", 403);
 }
 export function failure(error: unknown) {
   if (error instanceof AppError)

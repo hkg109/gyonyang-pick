@@ -39,9 +39,9 @@
 - `requestId`는 젤리 내역의 `UNIQUE` 값으로 써서 중복 클릭을 막는다.
 - 어느 운영자가 조정했는지 내역에 운영자 ID를 함께 남긴다.
 
-## 4. Claude API
+## 4. Gemini API
 
-예산이 생기기 전까지 비용은 API 키 주인이 부담한다. 키는 Vercel에 `ANTHROPIC_API_KEY`(Type: **Secret**, `NEXT_PUBLIC_` 금지)로 넣고 서버에서만 호출한다. 모델은 가장 저렴한 `claude-haiku-5-5`를 쓴다.
+예산이 생기기 전까지 비용은 API 키 주인이 부담한다(Google AI Studio 무료 티어 사용 가능). 키는 Vercel에 `GEMINI_API_KEY`(Type: **Secret**, `NEXT_PUBLIC_` 금지)로 넣고 서버에서만 호출한다. 기본 모델은 `gemini-2.5-flash`(환경 변수 `GEMINI_MODEL`로 변경 가능)를 쓴다.
 
 ### 4.1 리포트 강의평 요약
 
@@ -52,9 +52,9 @@ summary: { text: string; reviewCount: number; updatedAt: string } | null
 ```
 
 - 숨기지 않은 강의평이 **3개 이상**일 때만 만든다. 그보다 적으면 `null`.
-- 강좌별로 요약을 DB에 저장해 재사용하고, 숨기지 않은 강의평 목록이 바뀌었을 때만 다시 만든다. 리포트를 열 때마다 호출하지 않는다.
+- 강좌별로 요약을 DB(`review_summaries`)에 저장해 재사용하고, 숨기지 않은 강의평 목록이 바뀌었을 때만 다시 만든다. 리포트를 열 때마다 호출하지 않는다.
 - 강의평 본문만 보내고 작성자 정보는 보내지 않는다. 강의평에 없는 내용(성공 확률 등)은 쓰지 않게 지시한다.
-- Claude 호출이 실패하면 `summary: null`로 응답하고 리포트는 그대로 보여준다.
+- Gemini 호출이 실패하면 `summary: null`로 응답하고 리포트는 그대로 보여준다.
 - `Report` 타입에 `summary`를 추가하는 것은 `types.ts` 변경이라 정재가 함께 바꾼다. 화면은 이미 이 형식을 읽도록 만들어 두었다.
 
 ### 4.2 AI 지망 도우미

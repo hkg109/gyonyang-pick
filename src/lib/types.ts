@@ -94,6 +94,11 @@ export type Plan = {
   reasons: Record<string, string>;
   classified: boolean;
 };
+export type ReportSummary = {
+  text: string;
+  reviewCount: number;
+  updatedAt: string;
+};
 export type Report = {
   course: Course;
   stats: PublicStats;
@@ -101,6 +106,7 @@ export type Report = {
   rating: number | null;
   grades: number[];
   example: boolean;
+  summary: ReportSummary | null;
 };
 export type Mutation =
   | { type: "favorite"; courseId: string }

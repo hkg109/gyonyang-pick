@@ -34,6 +34,15 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202611230001_admin_and_ai.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   for (const c of CATALOG)
     await db.query("insert into public.offerings values($1,$2)", [
       c.id,
@@ -212,5 +221,78 @@ describe.sequential("PostgreSQL 업무 함수와 권한", () => {
     expect(result.rows[0].report.reviews.some((r) => r.id === reviewId)).toBe(
       true,
     );
+  });
+  it("운영자 강좌 추가·일괄 가져오기·유저 검색·젤리 조정 및 AI 일일 한도", async () => {
+    const newCourse = {
+      ...CATALOG[0],
+      id: "course-admin-1",
+      code: "ADM001",
+      name: "관리자 추가 강좌",
+      rating: null,
+      grades: [],
+      example: false,
+    };
+    const upsert = await db.query<{ c: { id: string } }>(
+      "select public.admin_upsert_course($1::jsonb) c",
+      [JSON.stringify(newCourse)],
+    );
+    expect(upsert.rows[0].c.id).toBe("course-admin-1");
+
+    const imported = await db.query<{ r: { added: number; updated: number } }>(
+      "select public.admin_import_courses($1::jsonb) r",
+      [
+        JSON.stringify([
+          newCourse,
+          { ...newCourse, id: "course-admin-2", code: "ADM002" },
+        ]),
+      ],
+    );
+    expect(imported.rows[0].r).toEqual({ added: 1, updated: 1 });
+
+    const searched = await db.query<{ u: { id: string; email: string }[] }>(
+      "select public.admin_search_users($1) u",
+      [other.slice(0, 8)],
+    );
+    expect(searched.rows[0].u.some((u) => u.id === other)).toBe(true);
+
+    const reqId = randomUUID();
+    const adj1 = await db.query<{
+      u: { balance: number; entries: { reason: string }[] };
+    }>("select public.admin_adjust_jelly($1,$2,$3,$4) u", [
+      other,
+      5,
+      "테스트 지급",
+      reqId,
+    ]);
+    expect(adj1.rows[0].u.balance).toBe(5);
+    expect(adj1.rows[0].u.entries[0].reason).toBe("운영자 조정 · 테스트 지급");
+
+    // 같은 requestId 재전송 시 중복 지급 방지
+    const adjDup = await db.query<{ u: { balance: number } }>(
+      "select public.admin_adjust_jelly($1,$2,$3,$4) u",
+      [other, 5, "테스트 지급", reqId],
+    );
+    expect(adjDup.rows[0].u.balance).toBe(5);
+
+    // 잔액 음수 거부
+    await expect(
+      db.query("select public.admin_adjust_jelly($1,$2,$3,$4)", [
+        other,
+        -10,
+        "초과 차감",
+        randomUUID(),
+      ]),
+    ).rejects.toThrow("음수");
+
+    // AI 일일 5회 한도
+    for (let i = 1; i <= 5; i++) {
+      const q = await db.query<{ n: number }>(
+        "select public.consume_ai_advice_quota() n",
+      );
+      expect(q.rows[0].n).toBe(i);
+    }
+    await expect(
+      db.query("select public.consume_ai_advice_quota()"),
+    ).rejects.toThrow("모두 사용");
   });
 });

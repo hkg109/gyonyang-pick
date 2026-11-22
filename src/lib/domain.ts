@@ -264,3 +264,146 @@ export function gradeDistribution(reviews: Review[]) {
   const total = counts.reduce((a, b) => a + b, 0);
   return total ? counts.map((n) => Math.round((n / total) * 100)) : [];
 }
+export const COURSE_KINDS: Course["kind"][] = [
+  "대면",
+  "SMART-F",
+  "SMART-B",
+  "e-러닝 A",
+  "e-러닝 C",
+  "e-러닝 D",
+];
+export function normalizeAdminCourse(input: unknown): Course {
+  if (!input || typeof input !== "object")
+    throw new AppError("강좌 데이터 형식이 올바르지 않습니다.");
+  const c = input as Record<string, unknown>;
+  const reqText = (key: string, label: string) => {
+    const v = typeof c[key] === "string" ? (c[key] as string).trim() : "";
+    if (!v || v.length > 100)
+      throw new AppError(`${label} 항목을 확인해 주세요.`);
+    return v;
+  };
+  const id = reqText("id", "강좌 ID");
+  const code = reqText("code", "과목 코드");
+  const name = reqText("name", "과목명");
+  const professor = reqText("professor", "교수명");
+  const section = reqText("section", "분반");
+  const area = reqText("area", "영역");
+  const semester = reqText("semester", "학기");
+  if (!/^\d{4}-[12]$/.test(semester))
+    throw new AppError("학기는 YYYY-1 또는 YYYY-2 형식이어야 합니다.");
+  if (
+    typeof c.credits !== "number" ||
+    !Number.isInteger(c.credits) ||
+    c.credits < 1 ||
+    c.credits > 6
+  )
+    throw new AppError("학점은 1~6 사이의 정수여야 합니다.");
+  if (
+    typeof c.capacity !== "number" ||
+    !Number.isInteger(c.capacity) ||
+    c.capacity < 0
+  )
+    throw new AppError("정원은 0 이상의 정수여야 합니다.");
+  if (!COURSE_KINDS.includes(c.kind as Course["kind"]))
+    throw new AppError("강좌 유형이 올바르지 않습니다.");
+  if (!Array.isArray(c.meetings))
+    throw new AppError("수업 시간 형식이 올바르지 않습니다.");
+  const meetings = c.meetings.map((m) => {
+    if (!m || typeof m !== "object")
+      throw new AppError("수업 시간 항목이 올바르지 않습니다.");
+    const { day, start, end } = m as Record<string, unknown>;
+    if (
+      typeof day !== "number" ||
+      !Number.isInteger(day) ||
+      day < 0 ||
+      day > 4 ||
+      typeof start !== "number" ||
+      !Number.isInteger(start) ||
+      typeof end !== "number" ||
+      !Number.isInteger(end) ||
+      start < 9 ||
+      end > 22 ||
+      start >= end
+    )
+      throw new AppError("수업 시간은 월~금(0~4), 9~22시, 시작 < 종료여야 합니다.");
+    return { day, start, end };
+  });
+  const assignment = c.assignment ?? 0;
+  const team = c.team ?? 0;
+  if (
+    typeof assignment !== "number" ||
+    !Number.isInteger(assignment) ||
+    assignment < 0 ||
+    assignment > 3 ||
+    typeof team !== "number" ||
+    !Number.isInteger(team) ||
+    team < 0 ||
+    team > 3
+  )
+    throw new AppError("과제·팀플 수치는 0~3 사이의 정수여야 합니다.");
+  if (!Array.isArray(c.years) || c.years.length === 0)
+    throw new AppError("수강 가능 학년(1~4)을 1개 이상 선택해 주세요.");
+  const years = Array.from(
+    new Set(
+      c.years.map((y) => {
+        if (typeof y !== "number" || !Number.isInteger(y) || y < 1 || y > 4)
+          throw new AppError("학년은 1~4 사이의 정수여야 합니다.");
+        return y;
+      }),
+    ),
+  ).sort((a, b) => a - b);
+  if (!Array.isArray(c.excludedNationalities))
+    throw new AppError("제외 국적 형식이 올바르지 않습니다.");
+  const excludedNationalities = Array.from(
+    new Set(
+      c.excludedNationalities.map((n) => {
+        if (
+          typeof n !== "string" ||
+          !/^[A-Z]{2}$/.test(n) ||
+          !COUNTRIES.includes(n)
+        )
+          throw new AppError("제외 국적은 2글자 대문자 국가 코드여야 합니다.");
+        return n;
+      }),
+    ),
+  );
+  if (!Array.isArray(c.excludedDepartments))
+    throw new AppError("제외 학과 형식이 올바르지 않습니다.");
+  const excludedDepartments = Array.from(
+    new Set(
+      c.excludedDepartments.map((d) => {
+        if (typeof d !== "string" || !DEPARTMENTS.includes(d))
+          throw new AppError("제외 학과는 등록된 학과 목록의 값이어야 합니다.");
+        return d;
+      }),
+    ),
+  );
+  if (
+    typeof c.passFail !== "boolean" ||
+    typeof c.internationalException !== "boolean"
+  )
+    throw new AppError("P/F 및 유학생 예외 여부는 true/false여야 합니다.");
+  return {
+    id,
+    code,
+    name,
+    professor,
+    section,
+    semester,
+    credits: c.credits,
+    area,
+    kind: c.kind as Course["kind"],
+    capacity: c.capacity,
+    meetings,
+    assignment,
+    team,
+    rating: null,
+    grades: [],
+    excludedNationalities,
+    excludedDepartments,
+    years,
+    passFail: c.passFail,
+    internationalException: c.internationalException,
+    example: false,
+  };
+}
