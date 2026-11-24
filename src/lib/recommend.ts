@@ -28,6 +28,30 @@ export function validCombination(courses: Course[], profile: Profile) {
     !courses.some((a, i) => courses.slice(i + 1).some((b) => overlap(a, b)))
   );
 }
+
+type Prepared = {
+  course: Course;
+  score: number;
+  mask: bigint;
+  cd: number;
+  intlE: number;
+  sufficient: boolean;
+  risk: number;
+};
+
+function courseMask(c: Course): bigint {
+  let mask = 0n;
+  for (const m of c.meetings) {
+    for (let h = m.start; h < m.end; h++) {
+      mask |= 1n << BigInt(m.day * 16 + (h - 9));
+    }
+  }
+  return mask;
+}
+
+const POOL_SIZE = 24;
+const SMALL_LIMIT = 24;
+
 export function recommend(
   catalog: Course[],
   filters: Filters,
@@ -47,6 +71,9 @@ export function recommend(
         ).every((key) => available.has(key)),
       ),
   );
+  if (!candidates.length) return [];
+
+  const statsById = new Map(stats.map((s) => [s.courseId, s]));
   const reason = (c: Course) =>
     [
       c.assignment <= filters.assignment
@@ -66,7 +93,7 @@ export function recommend(
     ]
       .filter(Boolean)
       .join(" · ");
-  const score = (c: Course) =>
+  const scoreOf = (c: Course) =>
     (c.assignment <= filters.assignment ? 3 : 0) +
     (c.team <= filters.team ? 4 : 0) +
     (c.meetings.every(
@@ -76,54 +103,141 @@ export function recommend(
     )
       ? 2
       : 0);
-  const options: { courses: Course[]; score: number }[] = [];
-  function walk(
-    index: number,
-    chosen: Course[],
-    credits: number,
-    points: number,
+
+  const prepared: Prepared[] = candidates.map((course) => {
+    const firstRank = statsById.get(course.id)?.ranks[0] ?? 0;
+    const sufficient = firstRank >= 5 && course.capacity > 0;
+    return {
+      course,
+      score: scoreOf(course),
+      mask: courseMask(course),
+      cd: course.kind === "e-러닝 C" || course.kind === "e-러닝 D" ? 1 : 0,
+      intlE:
+        course.kind.startsWith("e-러닝") && !course.internationalException
+          ? 1
+          : 0,
+      sufficient,
+      risk: course.capacity > 0 ? firstRank / course.capacity : 0,
+    };
+  });
+
+  const seen = new Map<
+    string,
+    { courses: Course[]; score: number; credits: number }
+  >();
+
+  function searchPool(
+    pool: Prepared[],
+    maxOptions: number,
+    maxNodes: number,
   ) {
-    if (credits >= filters.min)
-      options.push({ courses: chosen, score: points / chosen.length });
-    for (let i = index; i < candidates.length; i++) {
-      const c = candidates[i];
-      if (
-        credits + c.credits > filters.max ||
-        !validCombination([...chosen, c], profile)
-      )
-        continue;
-      walk(i + 1, [...chosen, c], credits + c.credits, points + score(c));
+    let nodes = 0;
+    let found = 0;
+    const chosen: Course[] = [];
+    const usedCodes = new Set<string>();
+
+    function walk(
+      index: number,
+      credits: number,
+      points: number,
+      usedMask: bigint,
+      cdCount: number,
+      intlECount: number,
+    ) {
+      if (nodes >= maxNodes || found >= maxOptions) return;
+      nodes++;
+      if (credits >= filters.min && chosen.length > 0) {
+        const key = chosen
+          .map((c) => c.id)
+          .sort()
+          .join(",");
+        if (!seen.has(key)) {
+          seen.set(key, {
+            courses: [...chosen],
+            score: points / chosen.length,
+            credits,
+          });
+          found++;
+        }
+      }
+      for (let i = index; i < pool.length; i++) {
+        if (nodes >= maxNodes || found >= maxOptions) return;
+        const item = pool[i];
+        const nextCredits = credits + item.course.credits;
+        if (nextCredits > filters.max) continue;
+        if ((usedMask & item.mask) !== 0n) continue;
+        if (usedCodes.has(item.course.code)) continue;
+        if (cdCount + item.cd > 1) continue;
+        if (profile.international && intlECount + item.intlE > 1) continue;
+
+        chosen.push(item.course);
+        usedCodes.add(item.course.code);
+        walk(
+          i + 1,
+          nextCredits,
+          points + item.score,
+          usedMask | item.mask,
+          cdCount + item.cd,
+          intlECount + item.intlE,
+        );
+        usedCodes.delete(item.course.code);
+        chosen.pop();
+      }
+    }
+
+    walk(0, 0, 0, 0n, 0, 0);
+  }
+
+  if (prepared.length <= SMALL_LIMIT) {
+    searchPool(prepared, 2000, 20000);
+  } else {
+    const byScore = [...prepared]
+      .sort((a, b) => b.score - a.score || b.course.credits - a.course.credits)
+      .slice(0, POOL_SIZE);
+    searchPool(byScore, 300, 6000);
+
+    if (paid && prepared.some((p) => p.sufficient)) {
+      const bySafe = [...prepared]
+        .sort(
+          (a, b) =>
+            Number(b.sufficient) - Number(a.sufficient) ||
+            a.risk - b.risk ||
+            b.score - a.score,
+        )
+        .slice(0, POOL_SIZE);
+      searchPool(bySafe, 300, 6000);
+
+      const byBold = [...prepared]
+        .sort(
+          (a, b) =>
+            Number(b.sufficient) - Number(a.sufficient) ||
+            b.risk - a.risk ||
+            b.score - a.score,
+        )
+        .slice(0, POOL_SIZE);
+      searchPool(byBold, 300, 6000);
     }
   }
-  // shortcut: exhaustive search is bounded to the 24-row MVP catalog; cap or replace it before importing a full university catalog.
-  if (candidates.length > 30)
-    throw new Error(
-      "추천 대상이 너무 많습니다. 강좌 유형이나 시간을 좁혀 주세요.",
-    );
-  walk(0, [], 0, 0);
-  options.sort(
-    (a, b) =>
-      b.score - a.score ||
-      b.courses.reduce((n, c) => n + c.credits, 0) -
-        a.courses.reduce((n, c) => n + c.credits, 0),
-  );
+
+  const options = Array.from(seen.values());
+  options.sort((a, b) => b.score - a.score || b.credits - a.credits);
   if (!options.length) return [];
+
   const sufficient = (c: Course) =>
-    (stats.find((s) => s.courseId === c.id)?.ranks[0] ?? 0) >= 5 &&
-    c.capacity > 0;
+    (statsById.get(c.id)?.ranks[0] ?? 0) >= 5 && c.capacity > 0;
   const risk = (courses: Course[]) =>
     courses.reduce(
       (n, c) =>
-        n +
-        (stats.find((s) => s.courseId === c.id)?.ranks[0] ?? 0) / c.capacity,
+        n + (statsById.get(c.id)?.ranks[0] ?? 0) / c.capacity,
       0,
     ) / courses.length;
+
   const chosen = [options[0]];
   if (paid) {
     const remaining = options.filter((o) => o !== options[0]);
     const known = remaining.filter((o) => o.courses.every(sufficient));
     const safe =
-      known.sort((a, b) => risk(a.courses) - risk(b.courses))[0] ??
+      [...known].sort((a, b) => risk(a.courses) - risk(b.courses))[0] ??
       remaining[0];
     if (safe) chosen.push(safe);
     const rest = remaining.filter((o) => o !== safe);
@@ -133,9 +247,10 @@ export function recommend(
         .sort((a, b) => risk(b.courses) - risk(a.courses))[0] ?? rest[0];
     if (bold) chosen.push(bold);
   }
+
   return chosen.map((o, i) => ({
     ids: o.courses.map((c) => c.id),
-    credits: o.courses.reduce((n, c) => n + c.credits, 0),
+    credits: o.credits,
     label: o.courses.every(sufficient)
       ? ["소신", "안정", "도전"][i]
       : `추천 ${i + 1}`,
