@@ -149,6 +149,46 @@ describe("추천", () => {
     }
     expect(validCombination([CATALOG[17], CATALOG[18]], p)).toBe(false);
   });
+  it("300개 이상 대량 강좌에서도 제한 없이 빠르게 유효 조합 3개를 찾는다", () => {
+    const p = newAccount("scale").profile;
+    const bigCatalog = Array.from({ length: 300 }, (_, i) => ({
+      ...CATALOG[i % 16],
+      id: `big-${i + 1}`,
+      code: `BIG${String(i + 1).padStart(3, "0")}`,
+      name: `대규모 교양 ${i + 1}`,
+      capacity: 20 + (i % 5) * 10,
+      meetings: [
+        {
+          day: i % 5,
+          start: 9 + (Math.floor(i / 5) % 5) * 2,
+          end: 11 + (Math.floor(i / 5) % 5) * 2,
+        },
+      ],
+      assignment: i % 4,
+      team: i % 3 === 0 ? 0 : 1,
+    }));
+    const bigStats = bigCatalog.map((c, i) => ({
+      courseId: c.id,
+      ranks: [5 + (i % 40) * 3, 2, 1],
+      sampleSize: 10 + (i % 50),
+      updatedAt: new Date().toISOString(),
+    }));
+    const t0 = performance.now();
+    const plans = recommend(bigCatalog, DEFAULT_FILTERS, p, true, bigStats);
+    const elapsed = performance.now() - t0;
+    expect(plans).toHaveLength(3);
+    expect(plans.map((pl) => pl.label)).toEqual(["소신", "안정", "도전"]);
+    expect(new Set(plans.map((pl) => pl.ids.join(","))).size).toBe(3);
+    for (const plan of plans) {
+      const courses = plan.ids.map(
+        (id) => bigCatalog.find((c) => c.id === id)!,
+      );
+      expect(validCombination(courses, p)).toBe(true);
+      expect(plan.credits).toBeGreaterThanOrEqual(DEFAULT_FILTERS.min);
+      expect(plan.credits).toBeLessThanOrEqual(DEFAULT_FILTERS.max);
+    }
+    expect(elapsed).toBeLessThan(200);
+  });
 });
 describe("집계와 경계", () => {
   it("표본과 저장 지망을 중복 집계하지 않는다", () => {
