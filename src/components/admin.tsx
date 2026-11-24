@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { DEPARTMENTS, SEMESTER } from "@/lib/catalog";
 import type { Course, Entry } from "@/lib/types";
 import Moderation from "./moderation";
-import { Empty, date } from "./shared";
+import { Empty, Modal, date } from "./shared";
 
 type AdminUser = { id: string; email: string; balance: number; entries: Entry[] };
 const KINDS: Course["kind"][] = ["대면", "SMART-F", "SMART-B", "e-러닝 A", "e-러닝 C", "e-러닝 D"];
@@ -35,11 +35,11 @@ const BLANK: Course = {
 
 // Calls an admin API. A route that does not exist yet falls through to the app's HTML page,
 // so any non-JSON reply means the backend part is not deployed.
-async function adminApi<T>(url: string, body?: unknown): Promise<T> {
+async function adminApi<T>(url: string, body?: unknown, method = "POST"): Promise<T> {
   const res = await fetch(
     url,
     body
-      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      ? { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
       : { cache: "no-store" },
   );
   if (!res.headers.get("content-type")?.includes("json"))
@@ -132,6 +132,22 @@ function CourseAdmin({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
+  const [removing, setRemoving] = useState<Course | null>(null);
+
+  async function remove(course: Course) {
+    setBusy(true);
+    try {
+      await adminApi("/api/admin/courses", { id: course.id }, "DELETE");
+      await onChanged();
+      if (form.id === course.id) setForm(BLANK);
+      setRemoving(null);
+      notify(`${course.name} 강좌를 삭제했어요.`);
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
   const editing = courses.some((c) => c.id === form.id);
   const set = <K extends keyof Course>(key: K, value: Course[K]) => setForm({ ...form, [key]: value });
   const list = courses.filter((c) =>
@@ -426,14 +442,75 @@ function CourseAdmin({
                   {c.semester} · {c.code}-{c.section} · {c.professor} · {c.kind} · {c.credits}학점 · 정원 {c.capacity}
                 </span>
               </div>
-              <button type="button" className="btn outline small" onClick={() => setForm({ ...BLANK, ...c })}>
-                수정
-              </button>
+              <RowMenu
+                label={c.name}
+                onEdit={() => {
+                  setForm({ ...BLANK, ...c });
+                  document.getElementById("course-form")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                onDelete={() => setRemoving(c)}
+              />
             </li>
           ))}
           {!list.length && <li className="muted">찾는 강좌가 없어요.</li>}
         </ul>
       </section>
+      {removing && (
+        <Modal title="강좌를 삭제할까요?" eyebrow={`${removing.semester} · ${removing.name}`} onClose={() => setRemoving(null)}>
+          <p>
+            <strong>{removing.name}</strong> ({removing.professor} · {removing.section}분반)을 삭제하면 되돌릴 수 없어요.
+          </p>
+          <p className="note">
+            이 강좌를 담은 즐겨찾기, 지망 칸, 모의지원 표본, 강의평, 리포트 열람 기록도 함께 지워져요. 지망에서는 뒤
+            순위가 앞으로 당겨지고, 이미 쓴 젤리는 돌려주지 않아요.
+          </p>
+          <div className="modalActions">
+            <button type="button" className="btn outline lg" onClick={() => setRemoving(null)}>
+              취소
+            </button>
+            <button type="button" className="btn danger lg" disabled={busy} onClick={() => void remove(removing)}>
+              {busy ? "삭제 중…" : "삭제"}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// "⋯" button that opens a small edit/delete menu for one row.
+function RowMenu({ label, onEdit, onDelete }: { label: string; onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const pick = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <div
+      className="rowMenu"
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}
+      onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+    >
+      <button
+        type="button"
+        className="iconButton small"
+        aria-label={`${label} 관리 메뉴`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="rowMenuList" role="menu">
+          <button type="button" role="menuitem" autoFocus onClick={pick(onEdit)}>
+            수정
+          </button>
+          <button type="button" role="menuitem" className="dangerText" onClick={pick(onDelete)}>
+            삭제
+          </button>
+        </div>
+      )}
     </div>
   );
 }
