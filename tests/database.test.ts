@@ -43,6 +43,12 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL("../supabase/migrations/202611240001_course_delete.sql", import.meta.url),
+      "utf8",
+    ),
+  );
   for (const c of CATALOG)
     await db.query("insert into public.offerings values($1,$2)", [
       c.id,
@@ -294,5 +300,33 @@ describe.sequential("PostgreSQL 업무 함수와 권한", () => {
     await expect(
       db.query("select public.consume_ai_advice_quota()"),
     ).rejects.toThrow("모두 사용");
+  });
+  it("운영자 강좌 삭제는 즐겨찾기·지망·열람 기록을 함께 정리하고 남은 지망을 앞으로 당긴다", async () => {
+    await action({ type: "favorite", courseId: "course-admin-2" });
+    const before = (
+      await db.query<{ a: { ranks: (string | null)[]; version: number } }>(
+        "select public.get_account() a",
+      )
+    ).rows[0].a;
+    const target = before.ranks.find(Boolean) as string;
+    await db.query("select public.admin_delete_course($1)", [target]);
+    await db.query("select public.admin_delete_course('course-admin-2')");
+    const after = (
+      await db.query<{
+        a: { ranks: (string | null)[]; favorites: string[]; unlocked: string[]; version: number };
+      }>("select public.get_account() a")
+    ).rows[0].a;
+    const expected = before.ranks.filter((id) => id && id !== target);
+    expect(after.ranks).toEqual([...expected, ...Array(3 - expected.length).fill(null)]);
+    expect(after.version).toBe(before.version + 1);
+    expect(after.favorites).not.toContain("course-admin-2");
+    expect(after.favorites).not.toContain(target);
+    expect(after.unlocked).not.toContain(target);
+    await expect(
+      db.query("select public.admin_delete_course($1)", [target]),
+    ).rejects.toThrow("찾을 수 없");
+    await expect(
+      db.query("select public.delete_course_cascade('course-3')"),
+    ).rejects.toThrow(/permission denied/);
   });
 });
