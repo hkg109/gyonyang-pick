@@ -49,6 +49,15 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202611240003_validate_department_db.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   for (const c of CATALOG)
     await db.query("insert into public.offerings values($1,$2)", [
       c.id,
@@ -328,5 +337,27 @@ describe.sequential("PostgreSQL 업무 함수와 권한", () => {
     await expect(
       db.query("select public.delete_course_cascade('course-3')"),
     ).rejects.toThrow(/permission denied/);
+  });
+  it("profile 수정 시 DEPARTMENTS 목록에 없는 학과는 DB에서 거부한다", async () => {
+    await action({
+      type: "profile",
+      profile: {
+        year: 2,
+        department: "컴퓨터소프트웨어학부",
+        nationality: "KR",
+        international: false,
+      },
+    });
+    await expect(
+      action({
+        type: "profile",
+        profile: {
+          year: 2,
+          department: "존재하지않는학과",
+          nationality: "KR",
+          international: false,
+        },
+      }),
+    ).rejects.toThrow(/profiles_department_check/);
   });
 });
