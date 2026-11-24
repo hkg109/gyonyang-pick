@@ -335,8 +335,14 @@ export default function App() {
       </footer>
       {notice && (
         <div
+          key={notice.text}
           className={`toast ${notice.error ? "toastError" : ""}`}
           role={notice.error ? "alert" : "status"}
+          // Top layer: otherwise an open <dialog> covers the toast and errors from modals go unseen.
+          popover="manual"
+          ref={(el) => {
+            if (el?.isConnected && !el.matches(":popover-open")) el.showPopover();
+          }}
         >
           <span>{notice.error ? "!" : "✓"}</span>
           {notice.text}

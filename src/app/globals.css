@@ -1977,3 +1977,9 @@ code {
 .btn.danger:hover:not(:disabled) {
   background: #a2463f;
 }
+.toast[popover] {
+  inset: auto auto 24px 50%;
+  margin: 0;
+  border: 0;
+  overflow: visible;
+}
