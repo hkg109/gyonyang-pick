@@ -114,7 +114,7 @@ export default function ReportView({
         </div>
         <p className="bigScore">
           <strong>{rating ?? "—"}</strong>
-          <span>/ 5 {fromReviews ? "만족도 평균" : "시연용 예시 평가"}</span>
+          <span>/ 5 {fromReviews ? "만족도 평균" : course.example ? "시연용 예시 평가" : "아직 강의평이 없어요"}</span>
         </p>
         {summary && (
           <div className="aiBox">
@@ -153,7 +153,7 @@ export default function ReportView({
         <div className="cardHead">
           <h3>성적 비율</h3>
           <span className="muted small">
-            {report.grades.length ? "출처: 이용자 강의평의 성적 구간 응답 · P/F 제외" : "시연용 예시 분포"}
+            {report.grades.length ? "출처: 이용자 강의평의 성적 구간 응답 · P/F 제외" : course.example ? "시연용 예시 분포" : "출처: 이용자 강의평의 성적 구간 응답"}
           </span>
         </div>
         {grades.length ? (
@@ -172,7 +172,7 @@ export default function ReportView({
       <section className="card stack">
         <div className="cardHead">
           <h3>과제 · 팀플 · 시험 · 출석</h3>
-          {!fromReviews && <span className="muted small">시연용 기본 수업 정보</span>}
+          {!fromReviews && <span className="muted small">{course.example ? "시연용 기본 수업 정보" : "강의평이 쌓이기 전에는 강좌 기본 정보"}</span>}
         </div>
         <div className="factGrid">
           {facts.map(([label, value]) => (

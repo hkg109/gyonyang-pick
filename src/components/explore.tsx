@@ -449,8 +449,7 @@ export function ExploreResults({
         <div className="bottomBar">
           <span>
             모의 경쟁률은 교양탐색에서 보여주지 않아요. <Paw size={16} /> 즐겨찾기한
-            과목은 내 리포트에서 1·2·3지망 후보가 됩니다. 과목·교수 정보는 시연용
-            예시입니다.
+            과목은 내 리포트에서 1·2·3지망 후보가 됩니다.
           </span>
           <Link href="/my-report" className="btn primary">
             즐겨찾기 {account.favorites.length}개 · 내 리포트로

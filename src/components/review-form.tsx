@@ -176,7 +176,7 @@ export default function ReviewForm({
           </label>
         </div>
         <p className="muted small">
-          이미 입력한 강좌(과목·교수·분반)는 목록에서 비활성화돼요. 강좌 정보는 시연용 예시입니다.
+          이미 입력한 강좌(과목·교수·분반)는 목록에서 비활성화돼요.
         </p>
       </section>
 
