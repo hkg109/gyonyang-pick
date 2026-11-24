@@ -1065,6 +1065,9 @@ input[type="radio"] {
 }
 .timeGrid {
   display: grid;
+  /* dragging paints cells instead of scrolling or selecting text */
+  touch-action: none;
+  user-select: none;
   grid-template-columns: 56px repeat(5, 60px);
   gap: 4px;
   font-size: 13px;

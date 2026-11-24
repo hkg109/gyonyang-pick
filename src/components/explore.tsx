@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useRef } from "react";
 import Link from "next/link";
 import { DEFAULT_FILTERS, SEMESTER } from "@/lib/catalog";
 import type { Course, Filters, Plan, Snapshot } from "@/lib/types";
@@ -28,6 +28,22 @@ export function ExploreConditions({
         ? filters.available.filter((x) => x !== key)
         : [...filters.available, key],
     });
+  // Drag paints the rectangle between the first and current cell. Starting on an empty cell fills,
+  // starting on a filled cell clears; cells outside the rectangle keep their state from drag start.
+  const drag = useRef<{ day: number; hour: number; fill: boolean; base: string[] } | null>(null);
+  const cellAt = (x: number, y: number) =>
+    (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-cell]")
+      ?.dataset.cell;
+  function paint(to: string | undefined) {
+    const d = drag.current;
+    if (!d || !to) return;
+    const [day, hour] = to.split("-").map(Number);
+    const box = new Set<string>();
+    for (let x = Math.min(d.day, day); x <= Math.max(d.day, day); x++)
+      for (let h = Math.min(d.hour, hour); h <= Math.max(d.hour, hour); h++) box.add(`${x}-${h}`);
+    const kept = d.base.filter((k) => !box.has(k));
+    setFilters({ ...filters, available: d.fill ? [...kept, ...box] : kept });
+  }
   return (
     <>
       <div className="card titleCard">
@@ -47,10 +63,24 @@ export function ExploreConditions({
             <span className="muted">{filters.available.length}칸 선택</span>
           </div>
           <p className="muted narrowText">
-            수업을 들을 수 있는 시간을 눌러 칠하세요. 칠하지 않은 시간에는 과목을
-            넣지 않아요.
+            수업을 들을 수 있는 시간을 누르거나 드래그해서 한 번에 칠하세요. 칠한 칸에서
+            시작하면 지워져요. 칠하지 않은 시간에는 과목을 넣지 않아요.
           </p>
-          <div className="timeGrid">
+          <div
+            className="timeGrid"
+            onPointerDown={(e) => {
+              const key = (e.target as HTMLElement).closest<HTMLElement>("[data-cell]")?.dataset.cell;
+              if (!key || e.button !== 0) return;
+              e.preventDefault();
+              const [day, hour] = key.split("-").map(Number);
+              drag.current = { day, hour, fill: !filters.available.includes(key), base: filters.available };
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              paint(key);
+            }}
+            onPointerMove={(e) => drag.current && paint(cellAt(e.clientX, e.clientY))}
+            onPointerUp={() => (drag.current = null)}
+            onPointerCancel={() => (drag.current = null)}
+          >
             <span />
             {[...DAYS].map((d) => (
               <strong key={d}>{d}</strong>
@@ -68,7 +98,9 @@ export function ExploreConditions({
                       className={`timeCell ${on ? "on" : ""}`}
                       aria-label={`${DAYS[day]}요일 ${hour}:00 ${on ? "수업 가능" : "수업 불가"}`}
                       aria-pressed={on}
-                      onClick={() => toggle(key)}
+                      data-cell={key}
+                      // Pointer input is handled by the grid drag; detail 0 means Enter/Space.
+                      onClick={(e) => e.detail === 0 && toggle(key)}
                     />
                   );
                 })}
