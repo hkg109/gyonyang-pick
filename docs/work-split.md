@@ -41,7 +41,7 @@
 ### 3.1 Supabase 연동 (가장 먼저)
 
 1. Supabase 프로젝트 생성(무료 플랜, 서울 리전)
-2. SQL Editor에서 `.local/supabase-setup.sql` 실행. 마이그레이션과 예시 강좌 24개가 한 트랜잭션으로 들어간다. 이 파일은 git에 없으므로 받아서 쓰거나, 마이그레이션을 실행한 뒤 `npm run db:seed`를 실행한다.
+2. SQL Editor에서 `.local/supabase-setup.sql` 실행. 마이그레이션과 예시 강좌 24개가 한 트랜잭션으로 들어간다. 예시 강좌는 7장 순서대로 `202611240002_remove_example_courses.sql`로 지운다.
 3. `.env.local`에 URL, publishable 키, service role 키 입력. **키는 커밋하거나 채팅에 붙여넣지 않는다.**
 4. Authentication에서 이메일 확인 켜기, Gmail SMTP(앱 비밀번호) 설정
 5. Before User Created 훅에 `public.before_user_created` 연결

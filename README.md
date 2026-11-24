@@ -65,7 +65,7 @@ npm run dev
 
 1. `.env.example`을 `.env.local`로 복사하고 아래 3개 값을 설정합니다.
 2. Supabase SQL Editor 또는 마이그레이션 도구에서 `supabase/migrations/202611170001_initial.sql`을 적용합니다.
-3. `npm run db:seed`로 시연 강좌를 입력합니다. 실제 학교 데이터로 오인하지 마세요.
+3. 강좌는 관리자 모드(`/admin` → 강좌 관리)에서 추가하거나 JSON으로 가져옵니다. 예시 강좌를 이미 넣었다면 `supabase/migrations/202611240001_course_delete.sql`, `202611240002_remove_example_courses.sql`을 차례로 실행해 지웁니다.
 4. Auth에서 이메일 확인을 켜고 Gmail SMTP 등 커스텀 SMTP를 설정합니다.
 5. Auth의 **Before User Created** 훅에 `public.before_user_created`를 연결합니다. 훅 외에도 DB 트리거가 한양 외 이메일 가입을 거부합니다.
 6. Auth의 Site URL과 Redirect URLs에 `http://localhost:3000/auth/callback` 및 배포 주소의 콜백을 등록합니다. 비밀번호 재설정 콜백의 `?next=/reset-password`도 허용해야 합니다.

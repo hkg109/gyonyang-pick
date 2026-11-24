@@ -10,8 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:api": "node scripts/smoke.mjs",
-    "demo:credit": "node scripts/demo-credit.mjs",
-    "db:seed": "node --env-file=.env.local scripts/seed.mjs"
+    "demo:credit": "node scripts/demo-credit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
