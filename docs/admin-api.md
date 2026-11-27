@@ -41,7 +41,7 @@
 
 ## 4. Gemini API
 
-예산이 생기기 전까지 비용은 API 키 주인이 부담한다(Google AI Studio 무료 티어 사용 가능). 키는 Vercel에 `GEMINI_API_KEY`(Type: **Secret**, `NEXT_PUBLIC_` 금지)로 넣고 서버에서만 호출한다. 기본 모델은 `gemini-3.8-flash`(환경 변수 `GEMINI_MODEL`로 변경 가능)를 쓴다.
+예산이 생기기 전까지 비용은 API 키 주인이 부담한다(Google AI Studio 무료 티어 사용 가능). 키는 Vercel에 `GEMINI_API_KEY`(Type: **Secret**, `NEXT_PUBLIC_` 금지)로 넣고 서버에서만 호출한다. 기본 모델은 `gemini-4-hydrogen`(실패 시 `gemini-3.5-flash-lite` → `gemini-3.8-flash` 자동 폴백, 환경 변수 `GEMINI_MODEL`로 변경 가능)를 쓴다.
 
 ### 4.1 리포트 강의평 요약
 
