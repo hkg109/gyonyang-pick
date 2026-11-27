@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { AppError } from "./domain";
 import type { Course, PublicStats, ReportSummary, Review } from "./types";
 
-const DEFAULT_MODEL = "gemini-3.8-flash";
+const DEFAULT_MODEL = "gemini-4-hydrogen";
+const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
 
 export const geminiConfigured = () => !!process.env.GEMINI_API_KEY?.trim();
 
@@ -27,76 +28,90 @@ async function callGemini(
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
-  const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const primary = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const models = Array.from(new Set([primary, ...FALLBACK_MODELS]));
 
-  const makePayload = (disableThinking: boolean) =>
-    JSON.stringify({
+  const makePayload = (model: string, withThinkingConfig: boolean) => {
+    const generationConfig: Record<string, unknown> = { maxOutputTokens };
+    if (withThinkingConfig) {
+      if (model.startsWith("gemini-4-")) {
+        generationConfig.thinkingConfig = { thinkingLevel: "LOW" };
+      } else {
+        generationConfig.temperature = 0.3;
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+    }
+    return JSON.stringify({
       system_instruction: { parts: [{ text: systemInstruction }] },
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens,
-        ...(disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-      },
+      generationConfig,
     });
+  };
 
-  let res: Response | null = null;
-  let disableThinking = true;
   // All attempts share one budget so /api/advice (maxDuration 30 s) answers with a clean 503
   // instead of being killed by Vercel when Gemini is slow.
   const deadline = Date.now() + 20_000;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const left = deadline - Date.now();
-    if (left < 3_000) break;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: makePayload(disableThinking),
-        signal: AbortSignal.timeout(Math.min(12_000, left)),
-      });
-    } catch (error) {
+  let lastStatus = 0;
+  let lastDetail = "";
+
+  for (const model of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    let withThinkingConfig = true;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const left = deadline - Date.now();
+      if (left < 3_000) break;
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: makePayload(model, withThinkingConfig),
+          signal: AbortSignal.timeout(Math.min(10_000, left)),
+        });
+      } catch (error) {
+        console.error(
+          `[ai] Gemini(${model}) fetch failed:`,
+          error instanceof Error ? error.message : "Unknown error",
+        );
+        break;
+      }
+
+      if (res.ok) {
+        const data = (await res.json()) as {
+          candidates?: { content?: { parts?: { text?: string }[] } }[];
+        };
+        const text = (data.candidates?.[0]?.content?.parts ?? [])
+          .map((p) => p.text ?? "")
+          .join("")
+          .trim();
+        if (text) return text;
+        console.error(
+          `[ai] Gemini(${model}) empty response:`,
+          JSON.stringify(data).slice(0, 400),
+        );
+        break;
+      }
+
+      lastStatus = res.status;
+      lastDetail = await res.text().catch(() => "");
+      if (res.status === 400 && withThinkingConfig && attempt === 0) {
+        withThinkingConfig = false;
+        continue;
+      }
       console.error(
-        "[ai] Gemini fetch failed:",
-        error instanceof Error ? error.message : "Unknown error",
+        `[ai] Gemini(${model}) HTTP error:`,
+        res.status,
+        lastDetail.slice(0, 300),
       );
-      if (attempt === 1)
-        throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
-      await new Promise((r) => setTimeout(r, 500));
-      continue;
+      break;
     }
-    if (res.status === 400 && disableThinking && attempt === 0) {
-      disableThinking = false;
-      continue;
-    }
-    if (res.status !== 503 || attempt === 1) break;
-    await new Promise((r) => setTimeout(r, 500));
   }
-  if (!res || !res.ok) {
-    const detail = res ? await res.text().catch(() => "") : "";
-    console.error(
-      "[ai] Gemini HTTP error:",
-      res?.status ?? 0,
-      detail.slice(0, 400),
-    );
-    throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
-  }
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = (data.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
-  if (!text) {
-    console.error("[ai] Gemini empty response:", JSON.stringify(data).slice(0, 400));
-    throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
-  }
-  return text;
+
+  console.error("[ai] All Gemini models failed:", lastStatus, lastDetail.slice(0, 300));
+  throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
 }
 
 const aiGlobals = globalThis as typeof globalThis & {
