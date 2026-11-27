@@ -43,7 +43,12 @@ async function callGemini(
 
   let res: Response | null = null;
   let disableThinking = true;
+  // All attempts share one budget so /api/advice (maxDuration 30 s) answers with a clean 503
+  // instead of being killed by Vercel when Gemini is slow.
+  const deadline = Date.now() + 20_000;
   for (let attempt = 0; attempt < 2; attempt++) {
+    const left = deadline - Date.now();
+    if (left < 3_000) break;
     try {
       res = await fetch(url, {
         method: "POST",
@@ -52,7 +57,7 @@ async function callGemini(
           "x-goog-api-key": apiKey,
         },
         body: makePayload(disableThinking),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(Math.min(12_000, left)),
       });
     } catch (error) {
       console.error(
@@ -61,7 +66,7 @@ async function callGemini(
       );
       if (attempt === 1)
         throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 500));
       continue;
     }
     if (res.status === 400 && disableThinking && attempt === 0) {
@@ -69,7 +74,7 @@ async function callGemini(
       continue;
     }
     if (res.status !== 503 || attempt === 1) break;
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 500));
   }
   if (!res || !res.ok) {
     const detail = res ? await res.text().catch(() => "") : "";
