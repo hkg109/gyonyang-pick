@@ -23,32 +23,51 @@ function serviceClient() {
 async function callGemini(
   systemInstruction: string,
   userPrompt: string,
-  maxOutputTokens = 300,
+  maxOutputTokens = 512,
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const payload = JSON.stringify({
-    system_instruction: { parts: [{ text: systemInstruction }] },
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens,
-    },
-  });
+
+  const makePayload = (disableThinking: boolean) =>
+    JSON.stringify({
+      system_instruction: { parts: [{ text: systemInstruction }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens,
+        ...(disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      },
+    });
 
   let res: Response | null = null;
+  let disableThinking = true;
   for (let attempt = 0; attempt < 2; attempt++) {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: payload,
-      signal: AbortSignal.timeout(12000),
-    });
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: makePayload(disableThinking),
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (error) {
+      console.error(
+        "[ai] Gemini fetch failed:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+      if (attempt === 1)
+        throw new AppError("지금은 AI 도우미를 쓸 수 없어요.", 503);
+      await new Promise((r) => setTimeout(r, 800));
+      continue;
+    }
+    if (res.status === 400 && disableThinking && attempt === 0) {
+      disableThinking = false;
+      continue;
+    }
     if (res.status !== 503 || attempt === 1) break;
     await new Promise((r) => setTimeout(r, 1000));
   }

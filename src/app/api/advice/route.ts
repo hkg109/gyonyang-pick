@@ -13,6 +13,8 @@ import {
 } from "@/lib/server";
 import type { Course } from "@/lib/types";
 
+export const maxDuration = 30;
+
 export async function POST(request: Request) {
   try {
     assertOrigin(request);
