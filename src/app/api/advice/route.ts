@@ -2,6 +2,7 @@ import {
   consumeDemoAdviceQuota,
   geminiConfigured,
   generateWishlistAdvice,
+  refundAdviceQuota,
 } from "@/lib/ai";
 import { AppError } from "@/lib/domain";
 import {
@@ -63,7 +64,13 @@ export async function POST(request: Request) {
       course,
       stats: statsList.find((s) => s.courseId === course.id),
     }));
-    const text = await generateWishlistAdvice(items);
+    let text: string;
+    try {
+      text = await generateWishlistAdvice(items);
+    } catch (error) {
+      await refundAdviceQuota(state.account.id, state.mode);
+      throw error;
+    }
     return Response.json(
       { text },
       { headers: { "Cache-Control": "no-store" } },

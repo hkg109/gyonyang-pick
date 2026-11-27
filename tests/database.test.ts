@@ -51,6 +51,12 @@ beforeAll(async () => {
   );
   await db.exec(
     await readFile(
+      new URL("../supabase/migrations/202611270001_ai_quota_refund.sql", import.meta.url),
+      "utf8",
+    ),
+  );
+  await db.exec(
+    await readFile(
       new URL(
         "../supabase/migrations/202611240003_validate_department_db.sql",
         import.meta.url,
@@ -359,5 +365,18 @@ describe.sequential("PostgreSQL 업무 함수와 권한", () => {
         },
       }),
     ).rejects.toThrow(/profiles_department_check/);
+  });
+  it("AI 실패 시 사용 횟수 환불은 서버만 할 수 있고 1회만 되돌린다", async () => {
+    // The earlier quota test used all 5 tries today.
+    await expect(db.query("select public.consume_ai_advice_quota()")).rejects.toThrow("모두 사용");
+    await expect(
+      db.query("select public.refund_ai_advice_quota($1)", [user]),
+    ).rejects.toThrow(/permission denied/);
+    await db.exec("reset role; set role service_role;");
+    await db.query("select public.refund_ai_advice_quota($1)", [user]);
+    await db.exec("reset role; set role authenticated;");
+    const again = await db.query<{ n: number }>("select public.consume_ai_advice_quota() n");
+    expect(again.rows[0].n).toBe(5);
+    await expect(db.query("select public.consume_ai_advice_quota()")).rejects.toThrow("모두 사용");
   });
 });

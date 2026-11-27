@@ -115,6 +115,20 @@ export function consumeDemoAdviceQuota(userId: string) {
   aiGlobals.demoAdviceUsage.set(userId, { date: today, count: next });
 }
 
+// Gives back the daily try when Gemini fails, so users don't lose a use to an outage.
+// Runs with the service role: the DB function is not callable from the browser.
+export async function refundAdviceQuota(userId: string, mode: "demo" | "supabase") {
+  if (mode === "demo") {
+    const prev = aiGlobals.demoAdviceUsage?.get(userId);
+    if (prev && prev.count > 0) aiGlobals.demoAdviceUsage!.set(userId, { ...prev, count: prev.count - 1 });
+    return;
+  }
+  const { error } = (await serviceClient()?.rpc("refund_ai_advice_quota", { p_user: userId })) ?? {
+    error: { message: "service role key missing" },
+  };
+  if (error) console.error("[ai] quota refund failed:", error.message);
+}
+
 export async function getOrCreateReviewSummary(
   courseId: string,
   reviews: Review[],
